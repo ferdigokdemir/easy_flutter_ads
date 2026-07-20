@@ -125,11 +125,15 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
   /// cached — use it where a wait would be felt, and let the background
   /// preloader catch up for next time.
   ///
-  /// [maxLoadWait] caps how long the caller waits for a load. When the cap is
-  /// hit the show is *cancelled*, not deferred: the ad never appears late, on
-  /// top of content the user is already using. The load itself keeps running,
-  /// so the ad lands in the cache for the next opportunity instead of being
-  /// wasted.
+  /// [maxLoadWait] is a *total* budget for getting an ad on screen: SDK
+  /// initialization, consent gathering and the load itself all draw from it.
+  /// A budget that only covered the load would be a false promise — on a first
+  /// run the consent form alone can outlast it.
+  ///
+  /// When the budget runs out the show is *cancelled*, not deferred: the ad
+  /// never appears late, on top of content the user is already using. The load
+  /// keeps running, so the ad lands in the cache for the next opportunity
+  /// instead of being wasted.
   Future<bool> show({bool loadIfMissing = true, Duration? maxLoadWait}) async {
     try {
       final skipReason = await runtime.evaluateGates(format);
@@ -138,7 +142,14 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
         return false;
       }
 
-      if (!await runtime.ensureInitialized()) {
+      final deadline = maxLoadWait == null ? null : runtime.now.add(maxLoadWait);
+
+      final initializing = runtime.ensureInitialized();
+      final initBudget = _remaining(deadline);
+      final initialized = initBudget == null
+          ? await initializing
+          : await initializing.timeout(initBudget, onTimeout: () => false);
+      if (!initialized) {
         _emitSkip(EasyAdSkipReason.notInitialized);
         return false;
       }
@@ -154,10 +165,15 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
           _emitSkip(EasyAdSkipReason.notReady);
           return false;
         }
+        final loadBudget = _remaining(deadline);
+        if (loadBudget != null && loadBudget <= Duration.zero) {
+          _emitSkip(EasyAdSkipReason.notReady);
+          return false;
+        }
         final loading = load();
-        final loaded = maxLoadWait == null
+        final loaded = loadBudget == null
             ? await loading
-            : await loading.timeout(maxLoadWait, onTimeout: () => false);
+            : await loading.timeout(loadBudget, onTimeout: () => false);
         if (!loaded) {
           _emitSkip(EasyAdSkipReason.notReady);
           return false;
@@ -352,6 +368,11 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
       ),
     );
   }
+
+  /// Time left in a show budget, or null when there is no deadline. Returns a
+  /// non-positive duration once the budget is spent.
+  Duration? _remaining(DateTime? deadline) =>
+      deadline?.difference(runtime.now);
 
   Duration _backoffDelay(int attempt) {
     final base = runtime.config.retryBaseDelay.inMilliseconds;
