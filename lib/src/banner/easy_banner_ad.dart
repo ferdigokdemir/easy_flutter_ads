@@ -152,18 +152,44 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
         listener: BannerAdListener(
           onAdLoaded: (ad) async {
             final banner = ad as BannerAd;
-            final platformSize = await banner.getPlatformAdSize();
+            // Only an inline banner needs the platform size: it is requested
+            // with height 0 and the real height is known only after loading.
+            //
+            // For anchored and fixed banners the requested size is the correct
+            // reservation. The served creative is often shorter, so adopting
+            // the platform size there would visibly shrink the banner right
+            // after it appears — which is why Google's anchored sample renders
+            // `ad.size` and only the inline sample reads the platform size.
+            AdSize? resolvedSize = banner.size;
+            if (widget.type == EasyBannerType.inlineAdaptive) {
+              resolvedSize = await banner.getPlatformAdSize();
+            }
             if (!mounted) {
               await banner.dispose();
               return;
             }
+            if (resolvedSize == null) {
+              // No trustworthy height: showing a wrongly sized container is
+              // worse than showing nothing.
+              await banner.dispose();
+              _loading = false;
+              runtime.emit(
+                EasyAdEvent(
+                  format: EasyAdFormat.banner,
+                  type: EasyAdEventType.loadFailed,
+                  adUnitId: unitId,
+                  message: 'getPlatformAdSize() returned null',
+                ),
+              );
+              return;
+            }
             setState(() {
               _ad = banner;
-              _size = platformSize ?? banner.size;
+              _size = resolvedSize;
               _loading = false;
               _attempt = 0;
             });
-            widget.onLoaded?.call(_size!);
+            widget.onLoaded?.call(resolvedSize);
             runtime.emit(
               EasyAdEvent(
                 format: EasyAdFormat.banner,
