@@ -136,7 +136,14 @@ class EasyAds {
   /// Only needed if you render ads yourself — a custom banner widget, or a
   /// format this package does not wrap. The built-in managers already gate
   /// every load behind this.
-  Future<bool> ensureInitialized() => _ensureInitialized();
+  ///
+  /// Returns false instead of throwing when [initialize] has not run yet: a
+  /// widget that happens to build before startup finished should render no ad,
+  /// not crash the screen.
+  Future<bool> ensureInitialized() async {
+    if (_runtime == null) return false;
+    return _ensureInitialized();
+  }
 
   /// Takes this session's single collapsible banner slot.
   ///
@@ -144,7 +151,8 @@ class EasyAds {
   /// widget can apply the same accidental-click protection [EasyBannerAd]
   /// does. Resets when the app process restarts.
   bool consumeCollapsibleSlot() {
-    final runtime = _requireRuntime();
+    final runtime = _runtime;
+    if (runtime == null) return false;
     if (runtime.collapsibleConsumed) return false;
     runtime.collapsibleConsumed = true;
     return true;
