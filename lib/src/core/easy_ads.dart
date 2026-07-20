@@ -5,6 +5,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../app_open/app_open_ad_manager.dart';
 import '../banner/easy_banner_ad.dart';
+import '../config/easy_ad_unit_ids.dart';
 import '../config/easy_ads_config.dart';
 import '../consent/consent_manager.dart';
 import '../full_screen/interstitial_ad_manager.dart';
@@ -35,41 +36,64 @@ class EasyAds {
   /// The singleton instance.
   static final EasyAds instance = EasyAds._();
 
-  AdRuntime? _runtime;
+  /// The config every manager sees until [initialize] supplies a real one:
+  /// ads off, no ad units. Every call becomes a silent no-op.
+  static const _unconfigured = EasyAdsConfig(
+    adUnitIds: EasyAdUnitIds(),
+    enabled: false,
+  );
+
+  AdRuntime? _runtimeOrNull;
   ConsentManager? _consent;
   AppOpenAdManager? _appOpen;
   InterstitialAdManager? _interstitial;
   RewardedAdManager? _rewarded;
   RewardedInterstitialAdManager? _rewardedInterstitial;
   Future<bool>? _initFuture;
+  bool _configured = false;
+
+  /// Managers exist from the first access, even before [initialize].
+  ///
+  /// Startup order is not something a widget can control — a screen may build
+  /// before the app finished booting, or a user may reach it through a path
+  /// that skips startup entirely. Throwing there would turn an ad problem into
+  /// a crash, so an unconfigured package simply shows no ads.
+  AdRuntime get _runtime {
+    final existing = _runtimeOrNull;
+    if (existing != null) return existing;
+    final runtime = AdRuntime(config: _unconfigured);
+    runtime.ensureInitialized = _ensureInitialized;
+    EasyBannerAd.runtime = runtime;
+    return _runtimeOrNull = runtime;
+  }
 
   /// True once [initialize] has been called (the SDK itself may still be
   /// starting up).
-  bool get isConfigured => _runtime != null;
+  bool get isConfigured => _configured;
 
   /// True once the Google Mobile Ads SDK finished initializing.
-  bool get isReady => _runtime?.isInitialized ?? false;
+  bool get isReady => _runtimeOrNull?.isInitialized ?? false;
 
   /// The live configuration.
-  EasyAdsConfig get config => _requireRuntime().config;
+  EasyAdsConfig get config => _runtime.config;
 
   /// UMP consent: privacy options entry point, reset for testing, and the
   /// `canRequestAds` state.
-  ConsentManager get consent => _consent ?? (throw _notInitialized);
+  ConsentManager get consent => _consent ??= ConsentManager(_runtime);
 
   /// App Open ads.
-  AppOpenAdManager get appOpen => _appOpen ?? (throw _notInitialized);
+  AppOpenAdManager get appOpen => _appOpen ??= AppOpenAdManager(_runtime);
 
   /// Interstitial ads.
   InterstitialAdManager get interstitial =>
-      _interstitial ?? (throw _notInitialized);
+      _interstitial ??= InterstitialAdManager(_runtime);
 
   /// Rewarded ads.
-  RewardedAdManager get rewarded => _rewarded ?? (throw _notInitialized);
+  RewardedAdManager get rewarded => _rewarded ??= RewardedAdManager(_runtime);
 
   /// Rewarded interstitial ads.
   RewardedInterstitialAdManager get rewardedInterstitial =>
-      _rewardedInterstitial ?? (throw _notInitialized);
+      _rewardedInterstitial ??= RewardedInterstitialAdManager(_runtime);
 
   /// Configures the package and starts the SDK.
   ///
@@ -86,20 +110,11 @@ class EasyAds {
     EasyAdsStore? store,
     DateTime Function()? clock,
   }) async {
-    final runtime = _runtime ??= AdRuntime(
-      config: config,
-      store: store,
-      clock: clock,
-    );
+    final runtime = _runtime;
     runtime.config = config;
-    runtime.ensureInitialized = _ensureInitialized;
-
-    _consent ??= ConsentManager(runtime);
-    _appOpen ??= AppOpenAdManager(runtime);
-    _interstitial ??= InterstitialAdManager(runtime);
-    _rewarded ??= RewardedAdManager(runtime);
-    _rewardedInterstitial ??= RewardedInterstitialAdManager(runtime);
-    EasyBannerAd.runtime = runtime;
+    if (store != null) runtime.store = store;
+    if (clock != null) runtime.clock = clock;
+    _configured = true;
 
     await runtime.startSession();
     return _ensureInitialized();
@@ -108,7 +123,7 @@ class EasyAds {
   /// Replaces the configuration at runtime — the hook for Firebase Remote
   /// Config. Cached ads are kept; the new values apply to the next decision.
   Future<void> updateConfig(EasyAdsConfig config) async {
-    final runtime = _requireRuntime();
+    final runtime = _runtime;
     runtime.config = config;
     if (runtime.isInitialized) await _applyRequestConfiguration(runtime);
   }
@@ -116,15 +131,14 @@ class EasyAds {
   /// Turns all ads on or off — call with `false` as soon as you know the user
   /// is a subscriber. No requests are sent while disabled.
   Future<void> setAdsEnabled(bool enabled) =>
-      updateConfig(_requireRuntime().config.copyWith(enabled: enabled));
+      updateConfig(_runtime.config.copyWith(enabled: enabled));
 
   /// Warms the cache for every full screen format.
   ///
   /// Call after startup and whenever the app returns to the foreground; ads
   /// expire, and a stale cache means a visible delay at show time.
   void preloadAll() {
-    final runtime = _runtime;
-    if (runtime == null || !runtime.config.enabled) return;
+    if (!_configured || !_runtime.config.enabled) return;
     unawaited(_interstitial?.preload() ?? Future<void>.value());
     unawaited(_rewarded?.preload() ?? Future<void>.value());
     unawaited(_appOpen?.preload() ?? Future<void>.value());
@@ -140,10 +154,7 @@ class EasyAds {
   /// Returns false instead of throwing when [initialize] has not run yet: a
   /// widget that happens to build before startup finished should render no ad,
   /// not crash the screen.
-  Future<bool> ensureInitialized() async {
-    if (_runtime == null) return false;
-    return _ensureInitialized();
-  }
+  Future<bool> ensureInitialized() => _ensureInitialized();
 
   /// Takes this session's single collapsible banner slot.
   ///
@@ -152,7 +163,6 @@ class EasyAds {
   /// does. Resets when the app process restarts.
   bool consumeCollapsibleSlot() {
     final runtime = _runtime;
-    if (runtime == null) return false;
     if (runtime.collapsibleConsumed) return false;
     runtime.collapsibleConsumed = true;
     return true;
@@ -171,7 +181,7 @@ class EasyAds {
     if (!await _ensureInitialized()) return;
     MobileAds.instance.openAdInspector((error) {
       if (error == null) return;
-      _requireRuntime().logError(
+      _runtime.logError(
         StateError('Ad inspector error: ${error.message}'),
         StackTrace.current,
       );
@@ -186,7 +196,7 @@ class EasyAds {
     try {
       await MobileAds.instance.setAppMuted(muted);
     } catch (error, stackTrace) {
-      _requireRuntime().logError(error, stackTrace);
+      _runtime.logError(error, stackTrace);
     }
   }
 
@@ -198,7 +208,7 @@ class EasyAds {
     try {
       await MobileAds.instance.setAppVolume(volume.clamp(0, 1));
     } catch (error, stackTrace) {
-      _requireRuntime().logError(error, stackTrace);
+      _runtime.logError(error, stackTrace);
     }
   }
 
@@ -211,7 +221,9 @@ class EasyAds {
   }
 
   Future<bool> _ensureInitialized() {
-    final runtime = _requireRuntime();
+    // Nothing to start until the host app has supplied ad units and callbacks.
+    if (!_configured) return Future.value(false);
+    final runtime = _runtime;
     if (runtime.isInitialized) return Future.value(true);
     return _initFuture ??= _startSdk(runtime);
   }
@@ -221,8 +233,8 @@ class EasyAds {
       // 1. Consent first. An ad requested before the consent string exists is
       // served without it, and AdMob then reports low consent coverage for
       // EEA/UK/CH traffic — which shows up as lost fill and eCPM.
-      await _consent!.gather();
-      runtime.canRequestAds = await _consent!.canRequestAds();
+      await consent.gather();
+      runtime.canRequestAds = await consent.canRequestAds();
 
       // 2. Targeting/test-device settings are global and must be in place
       // before the first request.
@@ -260,9 +272,4 @@ class EasyAds {
     );
   }
 
-  AdRuntime _requireRuntime() => _runtime ?? (throw _notInitialized);
-
-  StateError get _notInitialized => StateError(
-    'EasyAds.instance.initialize() must be awaited before using ads.',
-  );
 }

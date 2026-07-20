@@ -21,7 +21,7 @@ class AdRuntime {
     EasyAdsStore? store,
     DateTime Function()? clock,
   }) : store = store ?? MemoryEasyAdsStore(),
-       _clock = clock ?? DateTime.now;
+       clock = clock ?? DateTime.now;
 
   static const _sessionCountKey = 'easy_ads.session_count';
   static const _capCountPrefix = 'easy_ads.cap_count.';
@@ -30,13 +30,15 @@ class AdRuntime {
   /// The live configuration. Replaced wholesale by `EasyAds.updateConfig`.
   EasyAdsConfig config;
 
-  /// Persistence for session counts and daily caps.
-  final EasyAdsStore store;
+  /// Persistence for session counts and daily caps. Replaced by
+  /// `EasyAds.initialize` when the host app supplies its own.
+  EasyAdsStore store;
 
-  final DateTime Function() _clock;
+  /// Time source. Injectable so the gates can be unit tested without waiting.
+  DateTime Function() clock;
 
-  /// Current time according to the injected clock.
-  DateTime get now => _clock();
+  /// Current time according to [clock].
+  DateTime get now => clock();
 
   /// True once `MobileAds.initialize()` has completed.
   bool get isInitialized => _initialized;
