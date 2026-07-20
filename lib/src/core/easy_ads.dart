@@ -130,6 +130,26 @@ class EasyAds {
     unawaited(_appOpen?.preload() ?? Future<void>.value());
   }
 
+  /// Awaits consent gathering and SDK initialization, starting them if they
+  /// have not run yet. Returns false when initialization failed.
+  ///
+  /// Only needed if you render ads yourself — a custom banner widget, or a
+  /// format this package does not wrap. The built-in managers already gate
+  /// every load behind this.
+  Future<bool> ensureInitialized() => _ensureInitialized();
+
+  /// Takes this session's single collapsible banner slot.
+  ///
+  /// Returns true the first time and false afterwards, so a custom banner
+  /// widget can apply the same accidental-click protection [EasyBannerAd]
+  /// does. Resets when the app process restarts.
+  bool consumeCollapsibleSlot() {
+    final runtime = _requireRuntime();
+    if (runtime.collapsibleConsumed) return false;
+    runtime.collapsibleConsumed = true;
+    return true;
+  }
+
   /// Opens Google's Ad Inspector overlay.
   ///
   /// This is the supported way to debug fill and mediation on a real device:
