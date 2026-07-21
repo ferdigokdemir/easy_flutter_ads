@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../core/app_state_watcher.dart';
 import '../core/easy_ad_event.dart';
 import '../full_screen/full_screen_ad_manager.dart';
 
@@ -72,30 +73,32 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
 
   /// Starts showing the ad when the app returns from the background.
   ///
-  /// Uses the SDK's [AppStateEventNotifier] rather than
-  /// `WidgetsBindingObserver`: the latter also fires when a full screen ad
-  /// takes over the Flutter view, which makes "user left the app" and "an
-  /// interstitial opened" indistinguishable.
+  /// Uses the SDK's app state events rather than `WidgetsBindingObserver`: the
+  /// latter also fires when a full screen ad takes over the Flutter view, which
+  /// makes "user left the app" and "an interstitial opened" indistinguishable.
+  ///
+  /// The events come through [AppStateWatcher], the package's single
+  /// subscription to that channel — never listen to `AppStateEventNotifier`
+  /// yourself, use `EasyAds.instance.appState`.
   ///
   /// Only a preloaded ad is shown. Loading on resume would put the ad on
   /// screen seconds after the user is already interacting with content — the
   /// placement AdMob prohibits.
   void startWatchingAppState() {
     if (_appStateSubscription != null) return;
-    AppStateEventNotifier.startListening();
-    _appStateSubscription = AppStateEventNotifier.appStateStream.listen((
-      state,
-    ) {
+    _appStateSubscription = AppStateWatcher.instance.stream.listen((state) {
       if (state != AppState.foreground) return;
       unawaited(_onForeground());
     });
   }
 
   /// Stops reacting to app state changes.
+  ///
+  /// The underlying platform listener stays up: shutting it down would also
+  /// silence every other subscriber of `EasyAds.instance.appState`.
   Future<void> stopWatchingAppState() async {
     await _appStateSubscription?.cancel();
     _appStateSubscription = null;
-    await AppStateEventNotifier.stopListening();
   }
 
   Future<void> _onForeground() async {

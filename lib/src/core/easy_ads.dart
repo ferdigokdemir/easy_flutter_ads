@@ -12,6 +12,7 @@ import '../full_screen/interstitial_ad_manager.dart';
 import '../full_screen/rewarded_ad_manager.dart';
 import '../full_screen/rewarded_interstitial_ad_manager.dart';
 import 'ad_runtime.dart';
+import 'app_state_watcher.dart';
 import 'easy_ad_event.dart';
 import 'easy_ads_store.dart';
 
@@ -87,6 +88,14 @@ class EasyAds {
 
   /// The live configuration.
   EasyAdsConfig get config => _runtime.config;
+
+  /// Foreground/background events, for app logic that needs them too.
+  ///
+  /// Always use this instead of `AppStateEventNotifier.appStateStream`: that
+  /// stream cannot be listened to twice, so a second subscriber steals the
+  /// events from the App Open resume listener — and cancelling either one shuts
+  /// the platform channel down for both.
+  Stream<AppState> get appState => AppStateWatcher.instance.stream;
 
   /// UMP consent: privacy options entry point, reset for testing, and the
   /// `canRequestAds` state.

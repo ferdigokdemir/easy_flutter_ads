@@ -6,7 +6,7 @@
 library;
 
 export 'package:google_mobile_ads/google_mobile_ads.dart'
-    show AdSize, MaxAdContentRating, TagForChildDirectedTreatment,
+    show AdSize, AppState, MaxAdContentRating, TagForChildDirectedTreatment,
         TagForUnderAgeOfConsent;
 
 export 'src/app_open/app_open_ad_manager.dart';
