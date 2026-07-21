@@ -275,12 +275,18 @@ class EasyAds {
       // 3. Start the SDK. Mediation adapters only join requests made after
       // this completes — but a stalled adapter must not block the first
       // impression forever, so the wait is capped.
-      final Future<InitializationStatus?> initializing = MobileAds.instance
-          .initialize();
-      final status = await initializing.timeout(
-        runtime.config.sdkInitTimeout,
-        onTimeout: () => null,
-      );
+      // `.timeout(..., onTimeout: () => null)` would fail at run time here:
+      // the future is a Future<InitializationStatus> whatever the static type
+      // says, and its timeout() rejects a callback returning null. Letting the
+      // TimeoutException fly and catching it keeps the runtime types honest.
+      InitializationStatus? status;
+      try {
+        status = await MobileAds.instance.initialize().timeout(
+          runtime.config.sdkInitTimeout,
+        );
+      } on TimeoutException {
+        status = null;
+      }
       if (status == null) {
         runtime.emit(
           const EasyAdEvent(

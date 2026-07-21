@@ -43,31 +43,40 @@ class ConsentManager {
             )
           : ConsentRequestParameters();
 
-      ConsentInformation.instance.requestConsentInfoUpdate(
-        params,
-        () async {
-          try {
-            await ConsentForm.loadAndShowConsentFormIfRequired((formError) {
-              if (formError != null) {
-                _runtime.logError(
-                  StateError('Consent form error: ${formError.message}'),
-                  StackTrace.current,
-                );
-              }
-            });
-          } catch (error, stackTrace) {
-            _runtime.logError(error, stackTrace);
-          }
-          if (!completer.isCompleted) completer.complete();
-        },
-        (error) {
-          _runtime.logError(
-            StateError('Consent info update failed: ${error.message}'),
-            StackTrace.current,
-          );
-          if (!completer.isCompleted) completer.complete();
-        },
-      );
+      // requestConsentInfoUpdate returns void and reports platform failures
+      // asynchronously, so a throw inside it escapes this try block entirely
+      // and lands in the host app's zone as an unhandled error. Guarding the
+      // call keeps a misbehaving consent plugin from taking the app with it.
+      runZonedGuarded(() {
+        ConsentInformation.instance.requestConsentInfoUpdate(
+          params,
+          () async {
+            try {
+              await ConsentForm.loadAndShowConsentFormIfRequired((formError) {
+                if (formError != null) {
+                  _runtime.logError(
+                    StateError('Consent form error: ${formError.message}'),
+                    StackTrace.current,
+                  );
+                }
+              });
+            } catch (error, stackTrace) {
+              _runtime.logError(error, stackTrace);
+            }
+            if (!completer.isCompleted) completer.complete();
+          },
+          (error) {
+            _runtime.logError(
+              StateError('Consent info update failed: ${error.message}'),
+              StackTrace.current,
+            );
+            if (!completer.isCompleted) completer.complete();
+          },
+        );
+      }, (error, stackTrace) {
+        _runtime.logError(error, stackTrace);
+        if (!completer.isCompleted) completer.complete();
+      });
 
       await completer.future.timeout(timeout, onTimeout: () {});
     } catch (error, stackTrace) {
@@ -88,8 +97,8 @@ class ConsentManager {
   /// who accepted, so they can change their mind.
   Future<bool> isPrivacyOptionsRequired() async {
     try {
-      final status =
-          await ConsentInformation.instance.getPrivacyOptionsRequirementStatus();
+      final status = await ConsentInformation.instance
+          .getPrivacyOptionsRequirementStatus();
       return status == PrivacyOptionsRequirementStatus.required;
     } catch (error, stackTrace) {
       _runtime.logError(error, stackTrace);

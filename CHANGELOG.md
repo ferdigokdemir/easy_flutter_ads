@@ -1,3 +1,12 @@
+## 0.1.2
+
+- Fix a run-time crash in 0.1.1's SDK init timeout: `Future.timeout` rejects a
+  callback returning null when the underlying future is non-nullable whatever
+  the static type says, so startup always threw and the package stayed
+  uninitialized. Covered by a test that stalls the platform channel.
+- `requestConsentInfoUpdate` failures no longer escape into the host app's zone
+  as unhandled async errors.
+
 ## 0.1.1
 
 Reviewed against Google's official Android examples
