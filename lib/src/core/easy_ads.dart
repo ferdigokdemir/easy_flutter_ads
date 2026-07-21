@@ -51,6 +51,7 @@ class EasyAds {
   RewardedInterstitialAdManager? _rewardedInterstitial;
   Future<bool>? _initFuture;
   bool _configured = false;
+  bool _sessionCounted = false;
 
   /// Managers exist from the first access, even before [initialize].
   ///
@@ -64,7 +65,16 @@ class EasyAds {
     final runtime = AdRuntime(config: _unconfigured);
     runtime.ensureInitialized = _ensureInitialized;
     EasyBannerAd.runtime = runtime;
-    return _runtimeOrNull = runtime;
+    _runtimeOrNull = runtime;
+
+    // Every manager is created up front, not on first getter access: code that
+    // only ever calls preloadAll() would otherwise find no managers to preload.
+    _consent = ConsentManager(runtime);
+    _appOpen = AppOpenAdManager(runtime);
+    _interstitial = InterstitialAdManager(runtime);
+    _rewarded = RewardedAdManager(runtime);
+    _rewardedInterstitial = RewardedInterstitialAdManager(runtime);
+    return runtime;
   }
 
   /// True once [initialize] has been called (the SDK itself may still be
@@ -116,7 +126,14 @@ class EasyAds {
     if (clock != null) runtime.clock = clock;
     _configured = true;
 
-    await runtime.startSession();
+    // Once per process, however many times initialize() is called. Calling it
+    // again is legitimate — a second entry point may not know whether startup
+    // already ran — but each call must not look like another app launch to the
+    // session threshold.
+    if (!_sessionCounted) {
+      _sessionCounted = true;
+      await runtime.startSession();
+    }
     return _ensureInitialized();
   }
 
@@ -139,9 +156,9 @@ class EasyAds {
   /// expire, and a stale cache means a visible delay at show time.
   void preloadAll() {
     if (!_configured || !_runtime.config.enabled) return;
-    unawaited(_interstitial?.preload() ?? Future<void>.value());
-    unawaited(_rewarded?.preload() ?? Future<void>.value());
-    unawaited(_appOpen?.preload() ?? Future<void>.value());
+    unawaited(interstitial.preload());
+    unawaited(rewarded.preload());
+    unawaited(appOpen.preload());
   }
 
   /// Awaits consent gathering and SDK initialization, starting them if they
