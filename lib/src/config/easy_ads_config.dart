@@ -25,10 +25,10 @@ class EasyAdsConfig {
     this.sdkInitTimeout = const Duration(seconds: 5),
     this.fullScreenAdTtl = const Duration(minutes: 50),
     this.appOpenAdTtl = const Duration(hours: 3, minutes: 30),
-    this.maxLoadRetries = 4,
+    this.maxLoadRetries = 3,
     this.retryBaseDelay = const Duration(seconds: 2),
     this.maxRetryDelay = const Duration(seconds: 32),
-    this.appOpenCooldown = const Duration(minutes: 2),
+    this.appOpenCooldown = Duration.zero,
     this.interstitialCooldown = Duration.zero,
     this.minGapAfterFullScreenAd = const Duration(seconds: 30),
     this.appOpenSplashMaxWait = const Duration(seconds: 5),
@@ -116,6 +116,9 @@ class EasyAdsConfig {
   /// UX/revenue tuning knob rather than a compliance one. Prefer enforcing it
   /// here over AdMob's dashboard frequency cap: a capped request comes back as
   /// a no-fill, whereas this gate never sends the request at all.
+  ///
+  /// Defaults to zero (no cooldown); `minGapAfterFullScreenAd` and
+  /// `appOpenMinSessions` already guard the annoying cases.
   final Duration appOpenCooldown;
 
   /// Minimum time between two interstitials. Defaults to zero: interstitials

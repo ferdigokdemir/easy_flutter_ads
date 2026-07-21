@@ -90,7 +90,12 @@ void main() {
 
   group('cooldown', () {
     test('blocks a second app open ad inside the window', () async {
-      final runtime = buildRuntime();
+      final runtime = buildRuntime(
+        const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          appOpenCooldown: Duration(minutes: 2),
+        ),
+      );
       await runtime.noteShown(EasyAdFormat.appOpen);
 
       now = now.add(const Duration(seconds: 119));

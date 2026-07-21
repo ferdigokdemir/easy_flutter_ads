@@ -72,7 +72,7 @@ can never surface seconds into a session.
 There is **no numeric frequency rule** for App Open ads in AdMob's policies — the "4 hours" in
 Google's docs is the ad object's expiry, and the other "4 hours" on the policy page describes which
 apps the format suits ("apps with frequent opens see the best performance"). Frequency is therefore a
-UX/revenue decision: `appOpenCooldown` defaults to 2 minutes.
+UX/revenue decision: `appOpenCooldown` defaults to zero (no gate) — set it yourself if you want one.
 
 ## Configuration
 
