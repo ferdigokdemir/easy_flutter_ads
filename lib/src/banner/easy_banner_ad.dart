@@ -98,19 +98,6 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
   AdRuntime? get _runtime => EasyBannerAd.runtime;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final width = MediaQuery.sizeOf(context).width.truncate();
-    // Rotation and split-screen changes make the previous ad the wrong width;
-    // an adaptive banner must be re-requested for the new one.
-    if (width != _requestedWidth) {
-      _requestedWidth = width;
-      _attempt = 0;
-      unawaited(_load(width));
-    }
-  }
-
-  @override
   void dispose() {
     _retryTimer?.cancel();
     _disposeAd();
@@ -310,15 +297,39 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
 
   @override
   Widget build(BuildContext context) {
-    final ad = _ad;
-    final size = _size;
-    if (ad == null || size == null) {
-      return widget.placeholder ?? const SizedBox.shrink();
-    }
-    return SizedBox(
-      width: size.width.toDouble(),
-      height: size.height.toDouble(),
-      child: AdWidget(ad: ad),
+    // The ad is requested for the width of the *slot*, not of the screen: a
+    // banner inside a padded list would otherwise come back wider than the
+    // space it has and be clipped on one side. Falls back to the screen width
+    // only when the parent imposes no bound at all (a horizontal scroller).
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final width = available.truncate();
+
+        // Rotation, split screen and layout changes make the previous ad the
+        // wrong width; an adaptive banner must be re-requested for the new one.
+        if (width > 0 && width != _requestedWidth) {
+          _requestedWidth = width;
+          _attempt = 0;
+          // Loading touches state, which a build must never do synchronously.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _requestedWidth == width) unawaited(_load(width));
+          });
+        }
+
+        final ad = _ad;
+        final size = _size;
+        if (ad == null || size == null) {
+          return widget.placeholder ?? const SizedBox.shrink();
+        }
+        return SizedBox(
+          width: size.width.toDouble(),
+          height: size.height.toDouble(),
+          child: AdWidget(ad: ad),
+        );
+      },
     );
   }
 }
