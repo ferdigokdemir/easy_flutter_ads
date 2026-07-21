@@ -3,7 +3,7 @@ description: >-
   Production-grade AdMob wrapper for Flutter: preloading with TTL and backoff,
   AdMob-policy-safe App Open ads, UMP consent, adaptive banners and
   impression-level revenue events.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/ferdigokdemir/easy_flutter_ads
 issue_tracker: https://github.com/ferdigokdemir/easy_flutter_ads/issues
 topics:

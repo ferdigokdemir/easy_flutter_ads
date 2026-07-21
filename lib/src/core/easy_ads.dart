@@ -12,6 +12,7 @@ import '../full_screen/interstitial_ad_manager.dart';
 import '../full_screen/rewarded_ad_manager.dart';
 import '../full_screen/rewarded_interstitial_ad_manager.dart';
 import 'ad_runtime.dart';
+import 'easy_ad_event.dart';
 import 'easy_ads_store.dart';
 
 /// The package entry point.
@@ -247,20 +248,48 @@ class EasyAds {
 
   Future<bool> _startSdk(AdRuntime runtime) async {
     try {
-      // 1. Consent first. An ad requested before the consent string exists is
-      // served without it, and AdMob then reports low consent coverage for
-      // EEA/UK/CH traffic — which shows up as lost fill and eCPM.
-      await consent.gather();
-      runtime.canRequestAds = await consent.canRequestAds();
-
-      // 2. Targeting/test-device settings are global and must be in place
+      // 1. Targeting/test-device settings are global and must be in place
       // before the first request.
       await _applyRequestConfiguration(runtime);
 
-      // 3. Start the SDK. Mediation adapters only participate in requests made
-      // after this completes.
-      final status = await MobileAds.instance.initialize();
-      if (kDebugMode && runtime.config.verboseLogging) {
+      // 2. Consent. An ad requested before the consent string exists is served
+      // without it, and AdMob then reports low consent coverage for EEA/UK/CH
+      // traffic — which shows up as lost fill and eCPM.
+      //
+      // UMP caches the previous session's decision, so only the very first
+      // launch has to wait for the round trip: when consent is already on file
+      // the refresh runs alongside SDK startup instead of delaying it. This is
+      // what Google's samples do when they call initializeMobileAdsSdk()
+      // outside the gatherConsent callback.
+      final consentOnFile = await consent.canRequestAds();
+      final gathering = consent.gather().then(
+        (_) async => runtime.canRequestAds = await consent.canRequestAds(),
+      );
+      if (consentOnFile) {
+        runtime.canRequestAds = true;
+        unawaited(gathering);
+      } else {
+        await gathering;
+      }
+
+      // 3. Start the SDK. Mediation adapters only join requests made after
+      // this completes — but a stalled adapter must not block the first
+      // impression forever, so the wait is capped.
+      final Future<InitializationStatus?> initializing = MobileAds.instance
+          .initialize();
+      final status = await initializing.timeout(
+        runtime.config.sdkInitTimeout,
+        onTimeout: () => null,
+      );
+      if (status == null) {
+        runtime.emit(
+          const EasyAdEvent(
+            format: EasyAdFormat.interstitial,
+            type: EasyAdEventType.loadFailed,
+            message: 'MobileAds.initialize() timed out; loading anyway',
+          ),
+        );
+      } else if (kDebugMode && runtime.config.verboseLogging) {
         status.adapterStatuses.forEach((name, adapter) {
           debugPrint(
             '📺 easy_flutter_ads adapter $name: ${adapter.state.name} '

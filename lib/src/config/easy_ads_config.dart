@@ -22,6 +22,7 @@ class EasyAdsConfig {
     this.rewardedInterstitialEnabled = true,
     this.bannerEnabled = true,
     this.loadTimeout = const Duration(seconds: 15),
+    this.sdkInitTimeout = const Duration(seconds: 5),
     this.fullScreenAdTtl = const Duration(minutes: 50),
     this.appOpenAdTtl = const Duration(hours: 3, minutes: 30),
     this.maxLoadRetries = 4,
@@ -77,6 +78,15 @@ class EasyAdsConfig {
   /// itself has no timeout: without this a request on a dead network can stay
   /// pending indefinitely and block the retry loop.
   final Duration loadTimeout;
+
+  /// How long to wait for `MobileAds.initialize()` before loading anyway.
+  ///
+  /// Waiting for initialization is what lets every mediation adapter bid on
+  /// the first request, but a slow adapter must not hold the first impression
+  /// hostage. Google publishes the same tradeoff as a "reduce first impression
+  /// latency" snippet: race initialization against a five second timer and
+  /// load when either finishes.
+  final Duration sdkInitTimeout;
 
   /// How long a cached interstitial/rewarded ad stays usable.
   ///
@@ -208,6 +218,7 @@ class EasyAdsConfig {
     bool? rewardedInterstitialEnabled,
     bool? bannerEnabled,
     Duration? loadTimeout,
+    Duration? sdkInitTimeout,
     Duration? fullScreenAdTtl,
     Duration? appOpenAdTtl,
     int? maxLoadRetries,
@@ -247,6 +258,7 @@ class EasyAdsConfig {
           rewardedInterstitialEnabled ?? this.rewardedInterstitialEnabled,
       bannerEnabled: bannerEnabled ?? this.bannerEnabled,
       loadTimeout: loadTimeout ?? this.loadTimeout,
+      sdkInitTimeout: sdkInitTimeout ?? this.sdkInitTimeout,
       fullScreenAdTtl: fullScreenAdTtl ?? this.fullScreenAdTtl,
       appOpenAdTtl: appOpenAdTtl ?? this.appOpenAdTtl,
       maxLoadRetries: maxLoadRetries ?? this.maxLoadRetries,

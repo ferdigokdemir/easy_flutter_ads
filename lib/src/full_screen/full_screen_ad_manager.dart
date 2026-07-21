@@ -202,7 +202,6 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
       ad,
       FullScreenContentCallback<T>(
         onAdShowedFullScreenContent: (_) {
-          runtime.isShowingFullScreenAd = true;
           unawaited(runtime.noteShown(format));
           runtime.emit(
             EasyAdEvent(
@@ -254,6 +253,11 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
     );
 
     try {
+      // Set before showing, not in onAdShowedFullScreenContent: between the
+      // show call and that callback there is a window in which another format
+      // could decide nothing is on screen and show over this ad. Google's own
+      // App Open sample sets its isShowingAd flag on the line before show().
+      runtime.isShowingFullScreenAd = true;
       await performShow(ad);
     } catch (error, stackTrace) {
       _finishShow(unitId);
