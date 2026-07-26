@@ -66,10 +66,18 @@ class ConsentManager {
             if (!completer.isCompleted) completer.complete();
           },
           (error) {
-            _runtime.logError(
-              StateError('Consent info update failed: ${error.message}'),
-              StackTrace.current,
-            );
+            // Bilinçli olarak host app'e *bildirilmez*. Bu callback'in en sık
+            // sebebi UMP endpoint'ine ulaşılamaması ("Error making request."):
+            // uçak modu, kopuk wifi, captive portal. Kullanıcı için sonucu yok
+            // — akış fail-open, reklamlar yine istenir — ama onError'a
+            // verildiğinde her ağ kesintisi Crashlytics'te non-fatal olarak
+            // birikir ve gerçek consent sorunlarını gömer.
+            if (_runtime.config.verboseLogging && kDebugMode) {
+              debugPrint(
+                '📺 easy_flutter_ads: consent info update failed '
+                '(${error.errorCode}) ${error.message}',
+              );
+            }
             if (!completer.isCompleted) completer.complete();
           },
         );
