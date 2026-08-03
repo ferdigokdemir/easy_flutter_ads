@@ -88,6 +88,11 @@ enum EasyAdSkipReason {
   /// ([EasyAdsConfig.appOpenMinSessions]).
   sessionThreshold,
 
+  /// The host app declared it was sending the user to an external activity it
+  /// initiated — a picker, the camera, a sign-in flow — so this return to the
+  /// foreground is not the user coming back to the app.
+  resumeSuppressed,
+
   /// No cached ad was available and the caller opted out of loading, or the
   /// load did not finish within the allowed wait.
   notReady,

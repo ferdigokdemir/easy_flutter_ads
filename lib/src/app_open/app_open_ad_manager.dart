@@ -101,6 +101,36 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
     _appStateSubscription = null;
   }
 
+  /// Suppresses the resume ad for the next [window].
+  ///
+  /// Call this immediately before you send the user to an activity outside
+  /// your own UI — an image picker, the camera, a sign-in flow, the Play
+  /// Store, a share sheet, the system settings. The SDK reports the return
+  /// from those as an ordinary foreground transition, indistinguishable from a
+  /// user who left the app and came back, so without this the ad opens in the
+  /// middle of a flow the user is still in. That is the placement AdMob
+  /// prohibits, and it costs the flow's own conversion — which is usually
+  /// worth more than the impression.
+  ///
+  /// [EasyAdsConfig.minGapAfterFullScreenAd] cannot cover this: it only knows
+  /// about full screen ads this package itself showed, not about activities
+  /// the host app launched.
+  ///
+  /// The whole window is suppressed, not just the first foreground event — a
+  /// permission dialog in front of the picker produces a background/foreground
+  /// pair of its own, and consuming the suppression on that one would let the
+  /// ad through on the return that matters. The window then expires on its own
+  /// so a genuine background stint later still shows the ad; a flow the user
+  /// abandons must not disable the resume ad for the rest of the session.
+  ///
+  /// ```dart
+  /// EasyAds.instance.appOpen.suppressResume();
+  /// final file = await ImagePicker().pickImage(source: source);
+  /// ```
+  void suppressResume({Duration window = const Duration(minutes: 5)}) {
+    runtime.appOpenSuppressedUntil = runtime.now.add(window);
+  }
+
   Future<void> _onForeground() async {
     // Refresh the cache first: after a long background stint the ad is likely
     // past its TTL, and preload() is cheap when it is not.

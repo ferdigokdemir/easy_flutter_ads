@@ -88,6 +88,42 @@ void main() {
     });
   });
 
+  group('host initiated external activity', () {
+    test('the whole suppression window is blocked, not just one return',
+        () async {
+      // The picker case: the camera permission dialog produces its own
+      // foreground event before the picker's, and both must be suppressed.
+      final runtime = buildRuntime()
+        ..appOpenSuppressedUntil = now.add(const Duration(minutes: 5));
+
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.appOpen),
+        EasyAdSkipReason.resumeSuppressed,
+      );
+
+      now = now.add(const Duration(seconds: 30));
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.appOpen),
+        EasyAdSkipReason.resumeSuppressed,
+      );
+    });
+
+    test('the window expires on its own', () async {
+      final runtime = buildRuntime()
+        ..appOpenSuppressedUntil = now.add(const Duration(minutes: 5));
+
+      now = now.add(const Duration(minutes: 5, seconds: 1));
+      expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
+    });
+
+    test('other formats are untouched', () async {
+      final runtime = buildRuntime()
+        ..appOpenSuppressedUntil = now.add(const Duration(minutes: 5));
+
+      expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
+    });
+  });
+
   group('cooldown', () {
     test('blocks a second app open ad inside the window', () async {
       final runtime = buildRuntime(

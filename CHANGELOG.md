@@ -1,3 +1,12 @@
+## 0.1.3
+
+- New `EasyAds.instance.appOpen.suppressResume()`: call it before sending the
+  user to an activity outside your UI (image picker, camera, sign-in, Play
+  Store, share sheet) so the return does not open an App Open ad in the middle
+  of a flow the user is still in. The SDK reports those returns as ordinary
+  foreground transitions, and `minGapAfterFullScreenAd` cannot see them — it
+  only knows about full screen ads the package itself showed.
+
 ## 0.1.2
 
 - Fix a run-time crash in 0.1.1's SDK init timeout: `Future.timeout` rejects a

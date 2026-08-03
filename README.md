@@ -69,6 +69,21 @@ Open ad on top of the ad the user just came back from. `minGapAfterFullScreenAd`
 suppresses exactly that, and `startWatchingAppState()` only ever shows an already-cached ad, so an ad
 can never surface seconds into a session.
 
+**3. No ad on a return your own app caused.**
+
+An image picker, the camera, a sign-in flow, the Play Store, a share sheet — every one of them
+backgrounds your app and comes back as a plain foreground transition. `minGapAfterFullScreenAd` does
+not help here: it only knows about ads *this package* showed. Announce those trips:
+
+```dart
+EasyAds.instance.appOpen.suppressResume();
+final file = await ImagePicker().pickImage(source: source);
+```
+
+The whole window (5 min default) is suppressed rather than just the next foreground event, because a
+permission dialog in front of the picker fires a background/foreground pair of its own. It expires by
+itself, so an abandoned flow does not disable the resume ad for the rest of the session.
+
 There is **no numeric frequency rule** for App Open ads in AdMob's policies — the "4 hours" in
 Google's docs is the ad object's expiry, and the other "4 hours" on the policy page describes which
 apps the format suits ("apps with frequent opens see the best performance"). Frequency is therefore a

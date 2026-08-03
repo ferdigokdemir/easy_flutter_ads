@@ -65,6 +65,11 @@ class AdRuntime {
   /// The moment the last interstitial/rewarded ad closed.
   DateTime? lastOtherFullScreenAdClosedAt;
 
+  /// When the App Open suppression window opened by
+  /// [AppOpenAdManager.suppressResume] runs out. A timestamp in the past means
+  /// no suppression, so the window needs no clearing.
+  DateTime? appOpenSuppressedUntil;
+
   /// When each format was last shown, for cooldowns.
   final Map<EasyAdFormat, DateTime> lastShownAt = {};
 
@@ -211,6 +216,11 @@ class AdRuntime {
       if (isShowingFullScreenAd) return EasyAdSkipReason.alreadyShowing;
 
       if (format == EasyAdFormat.appOpen) {
+        final suppressedUntil = appOpenSuppressedUntil;
+        if (suppressedUntil != null && now.isBefore(suppressedUntil)) {
+          return EasyAdSkipReason.resumeSuppressed;
+        }
+
         final closedAt = lastOtherFullScreenAdClosedAt;
         if (closedAt != null &&
             now.difference(closedAt) < config.minGapAfterFullScreenAd) {
