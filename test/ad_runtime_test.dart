@@ -144,6 +144,49 @@ void main() {
       expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
     });
 
+    test('survives a restart through the store', () async {
+      const config = EasyAdsConfig(
+        adUnitIds: EasyAdUnitIds.test(),
+        appOpenCooldown: Duration(hours: 4),
+      );
+      final store = MemoryEasyAdsStore();
+
+      final first = AdRuntime(config: config, store: store, clock: clock);
+      await first.startSession();
+      await first.noteShown(EasyAdFormat.appOpen);
+
+      // The user kills the app and relaunches it an hour later.
+      now = now.add(const Duration(hours: 1));
+      final second = AdRuntime(config: config, store: store, clock: clock);
+      await second.startSession();
+      expect(
+        await second.evaluateGates(EasyAdFormat.appOpen),
+        EasyAdSkipReason.cooldown,
+      );
+
+      now = now.add(const Duration(hours: 3, seconds: 1));
+      expect(await second.evaluateGates(EasyAdFormat.appOpen), isNull);
+    });
+
+    test('a stored timestamp from the future is ignored', () async {
+      const config = EasyAdsConfig(
+        adUnitIds: EasyAdUnitIds.test(),
+        appOpenCooldown: Duration(hours: 4),
+      );
+      final store = MemoryEasyAdsStore();
+
+      final first = AdRuntime(config: config, store: store, clock: clock);
+      await first.startSession();
+      await first.noteShown(EasyAdFormat.appOpen);
+
+      // The device clock moved backwards; an honoured future timestamp would
+      // freeze the format until the clock caught up.
+      now = now.subtract(const Duration(days: 30));
+      final second = AdRuntime(config: config, store: store, clock: clock);
+      await second.startSession();
+      expect(await second.evaluateGates(EasyAdFormat.appOpen), isNull);
+    });
+
     test('never blocks a user-initiated rewarded ad', () async {
       final runtime = buildRuntime(
         const EasyAdsConfig(

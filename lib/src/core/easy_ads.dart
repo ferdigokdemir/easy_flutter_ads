@@ -121,8 +121,8 @@ class EasyAds {
   /// reported through [EasyAdsConfig.onError], so a broken ad stack degrades
   /// to "no ads" instead of "no app".
   ///
-  /// Supply a persistent [store] if you use session thresholds or daily caps —
-  /// the in-memory default resets on every cold start.
+  /// Supply a persistent [store] if you use session thresholds, daily caps, or
+  /// cooldowns — the in-memory default resets on every cold start.
   ///
   /// [clock] exists for tests.
   Future<bool> initialize({

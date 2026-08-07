@@ -1,5 +1,6 @@
-/// Persistence hook for the counters that must survive an app restart:
-/// the number of sessions so far and per-day show caps.
+/// Persistence hook for the values that must survive an app restart: the
+/// number of sessions so far, per-day show caps, and the last impression of
+/// each cooldown-gated format.
 ///
 /// The package deliberately does not depend on `shared_preferences` — supply a
 /// thin adapter instead:
@@ -16,8 +17,9 @@
 /// }
 /// ```
 ///
-/// With the default [MemoryEasyAdsStore] the counters reset on every cold
-/// start, which makes session thresholds and daily caps ineffective.
+/// With the default [MemoryEasyAdsStore] everything resets on every cold
+/// start, which makes session thresholds, daily caps, and cooldowns
+/// ineffective.
 abstract class EasyAdsStore {
   /// Returns the stored value, or 0 when the key is absent.
   Future<int> readInt(String key);

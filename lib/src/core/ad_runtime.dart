@@ -26,6 +26,15 @@ class AdRuntime {
   static const _sessionCountKey = 'easy_ads.session_count';
   static const _capCountPrefix = 'easy_ads.cap_count.';
   static const _capDayPrefix = 'easy_ads.cap_day.';
+  static const _lastShownPrefix = 'easy_ads.last_shown.';
+
+  /// The formats [evaluateGates] applies a cooldown to. Their last impression
+  /// is persisted, so killing and relaunching the app cannot skip a cooldown
+  /// that is still running.
+  static const _cooldownFormats = [
+    EasyAdFormat.appOpen,
+    EasyAdFormat.interstitial,
+  ];
 
   /// The live configuration. Replaced wholesale by `EasyAds.updateConfig`.
   EasyAdsConfig config;
@@ -70,17 +79,31 @@ class AdRuntime {
   /// no suppression, so the window needs no clearing.
   DateTime? appOpenSuppressedUntil;
 
-  /// When each format was last shown, for cooldowns.
+  /// When each format was last shown, for cooldowns. Seeded from the store on
+  /// [startSession], so the cooldown of a [_cooldownFormats] entry survives a
+  /// restart when a real [EasyAdsStore] is supplied.
   final Map<EasyAdFormat, DateTime> lastShownAt = {};
 
   /// Whether the one collapsible banner slot of this session was used.
   bool collapsibleConsumed = false;
 
-  /// Loads the persisted session count and increments it. Called once per
-  /// process from `EasyAds.initialize`.
+  /// Loads the persisted session count and the last impression of every
+  /// cooldown-gated format, then records this launch. Called once per process
+  /// from `EasyAds.initialize`.
   Future<void> startSession() async {
     _sessionCount = await store.readInt(_sessionCountKey) + 1;
     await store.writeInt(_sessionCountKey, _sessionCount);
+
+    for (final format in _cooldownFormats) {
+      final stored = await store.readInt('$_lastShownPrefix${format.name}');
+      if (stored <= 0) continue;
+      final shownAt = DateTime.fromMillisecondsSinceEpoch(stored);
+      // A timestamp in the future means the device clock moved backwards.
+      // Honouring it would freeze the format until the clock catches up, so
+      // treat it as "never shown" instead.
+      if (shownAt.isAfter(now)) continue;
+      lastShownAt[format] = shownAt;
+    }
   }
 
   /// Marks the SDK as initialized.
@@ -248,7 +271,14 @@ class AdRuntime {
   /// Records a successful impression: resets the cooldown clock and advances
   /// the daily counter.
   Future<void> noteShown(EasyAdFormat format) async {
-    lastShownAt[format] = now;
+    final shownAt = now;
+    lastShownAt[format] = shownAt;
+    if (_cooldownFormats.contains(format)) {
+      await store.writeInt(
+        '$_lastShownPrefix${format.name}',
+        shownAt.millisecondsSinceEpoch,
+      );
+    }
     if (dailyCapFor(format) == null) return;
     final today = _todayOrdinal;
     final storedDay = await store.readInt('$_capDayPrefix${format.name}');

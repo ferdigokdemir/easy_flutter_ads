@@ -1,3 +1,12 @@
+## 0.1.4
+
+- `appOpenCooldown` and `interstitialCooldown` are now persisted through the
+  `EasyAdsStore`. The last impression only lived in memory, so killing and
+  relaunching the app handed the user a fresh cooldown — the gate held across a
+  background/resume but not across a cold start, which is exactly the case an
+  App Open cooldown is there for. A stored timestamp in the future (device
+  clock moved backwards) is discarded rather than freezing the format.
+
 ## 0.1.3
 
 - New `EasyAds.instance.appOpen.suppressResume()`: call it before sending the

@@ -88,6 +88,8 @@ There is **no numeric frequency rule** for App Open ads in AdMob's policies — 
 Google's docs is the ad object's expiry, and the other "4 hours" on the policy page describes which
 apps the format suits ("apps with frequent opens see the best performance"). Frequency is therefore a
 UX/revenue decision: `appOpenCooldown` defaults to zero (no gate) — set it yourself if you want one.
+The last impression is persisted, so killing and relaunching the app does not hand the user a fresh
+cooldown.
 
 ## Configuration
 
@@ -106,8 +108,8 @@ await EasyAds.instance.updateConfig(
 await EasyAds.instance.setAdsEnabled(false);
 ```
 
-Session thresholds (`appOpenMinSessions`, "show the first App Open ad after a few visits") and daily
-caps need persistence. Supply an `EasyAdsStore`:
+Session thresholds (`appOpenMinSessions`, "show the first App Open ad after a few visits"), daily
+caps, and cooldowns need persistence. Supply an `EasyAdsStore`:
 
 ```dart
 class PrefsAdsStore implements EasyAdsStore {

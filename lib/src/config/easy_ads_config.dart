@@ -119,10 +119,15 @@ class EasyAdsConfig {
   ///
   /// Defaults to zero (no cooldown); `minGapAfterFullScreenAd` and
   /// `appOpenMinSessions` already guard the annoying cases.
+  ///
+  /// The last impression is persisted, so a relaunch cannot skip a running
+  /// cooldown — supply a persistent [EasyAdsStore] or the timestamp dies with
+  /// the process.
   final Duration appOpenCooldown;
 
   /// Minimum time between two interstitials. Defaults to zero: interstitials
-  /// are usually gated by your own app flow.
+  /// are usually gated by your own app flow. Persisted across restarts like
+  /// [appOpenCooldown].
   final Duration interstitialCooldown;
 
   /// How long after any other full screen ad closes the App Open ad stays
