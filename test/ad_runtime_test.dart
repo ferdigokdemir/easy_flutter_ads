@@ -246,6 +246,31 @@ void main() {
     });
   });
 
+  group('request gate', () {
+    test('stays shut until both the SDK and consent are ready', () {
+      final runtime = buildRuntime()..canRequestAds = false;
+      var openings = 0;
+      runtime.requestGateOpened.addListener(() => openings++);
+
+      runtime.markInitialized();
+      expect(openings, 0, reason: 'consent has not arrived yet');
+
+      runtime.canRequestAds = true;
+      expect(openings, 1, reason: 'a late consent must reopen the gate');
+    });
+
+    test('reopens when a timed-out SDK init finishes later', () {
+      final runtime = buildRuntime();
+      var openings = 0;
+      runtime.requestGateOpened.addListener(() => openings++);
+
+      runtime.markInitialized();
+      runtime.markInitialized();
+
+      expect(openings, 2);
+    });
+  });
+
   group('config', () {
     test('copyWith replaces only what it is given', () {
       const config = EasyAdsConfig(adUnitIds: EasyAdUnitIds.test());

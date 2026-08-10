@@ -28,9 +28,12 @@ class RewardedInterstitialAdManager
   Duration get ttl => runtime.config.fullScreenAdTtl;
 
   /// Shows the ad and returns the reward, or null when nothing was earned.
+  ///
+  /// [maxLoadWait] defaults to [FullScreenAdManager.defaultMaxLoadWait]; pass
+  /// an explicit null to wait as long as the SDK takes.
   Future<EasyAdReward?> showForReward({
     bool loadIfMissing = true,
-    Duration? maxLoadWait,
+    Duration? maxLoadWait = FullScreenAdManager.defaultMaxLoadWait,
   }) async {
     _reward = null;
     final shown = await show(

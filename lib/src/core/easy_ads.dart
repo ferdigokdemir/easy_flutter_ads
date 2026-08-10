@@ -289,10 +289,9 @@ class EasyAds {
       // says, and its timeout() rejects a callback returning null. Letting the
       // TimeoutException fly and catching it keeps the runtime types honest.
       InitializationStatus? status;
+      final sdkInit = MobileAds.instance.initialize();
       try {
-        status = await MobileAds.instance.initialize().timeout(
-          runtime.config.sdkInitTimeout,
-        );
+        status = await sdkInit.timeout(runtime.config.sdkInitTimeout);
       } on TimeoutException {
         status = null;
       }
@@ -302,6 +301,16 @@ class EasyAds {
             format: EasyAdFormat.interstitial,
             type: EasyAdEventType.loadFailed,
             message: 'MobileAds.initialize() timed out; loading anyway',
+          ),
+        );
+        // Requests made in the meantime may be answered by nobody. Marking
+        // initialization again once it genuinely finishes reopens the request
+        // gate, so a banner that failed against a half-started SDK reloads.
+        unawaited(
+          sdkInit.then(
+            (_) => runtime.markInitialized(),
+            onError: (Object error, StackTrace stackTrace) =>
+                runtime.logError(error, stackTrace),
           ),
         );
       } else if (kDebugMode && runtime.config.verboseLogging) {

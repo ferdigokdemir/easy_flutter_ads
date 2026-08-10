@@ -16,6 +16,14 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
   /// Creates a manager bound to [runtime].
   FullScreenAdManager(this.runtime);
 
+  /// Default budget for [show] when the caller does not name one.
+  ///
+  /// Generous on purpose: the alternative to waiting is a cancelled show, which
+  /// costs an impression *and* — for rewarded — the reward the user was
+  /// promised. Call sites that cannot afford the wait pass their own budget, or
+  /// an explicit null for no budget at all.
+  static const Duration defaultMaxLoadWait = Duration(seconds: 15);
+
   /// Shared state and policy gates.
   @protected
   final AdRuntime runtime;
@@ -134,7 +142,13 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
   /// never appears late, on top of content the user is already using. The load
   /// keeps running, so the ad lands in the cache for the next opportunity
   /// instead of being wasted.
-  Future<bool> show({bool loadIfMissing = true, Duration? maxLoadWait}) async {
+  ///
+  /// Defaults to [defaultMaxLoadWait]. Pass an explicit null to wait as long as
+  /// the SDK takes.
+  Future<bool> show({
+    bool loadIfMissing = true,
+    Duration? maxLoadWait = defaultMaxLoadWait,
+  }) async {
     try {
       final skipReason = await runtime.evaluateGates(format);
       if (skipReason != null) {

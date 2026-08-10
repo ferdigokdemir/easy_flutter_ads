@@ -91,6 +91,7 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
   BannerAd? _ad;
   AdSize? _size;
   bool _loading = false;
+  bool _watchingGate = false;
   int _attempt = 0;
   int _requestedWidth = 0;
   Timer? _retryTimer;
@@ -100,8 +101,21 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
   @override
   void dispose() {
     _retryTimer?.cancel();
+    if (_watchingGate) {
+      _runtime?.requestGateOpened.removeListener(_onRequestGateOpened);
+    }
     _disposeAd();
     super.dispose();
+  }
+
+  /// Ad requests became allowed. A banner that mounted while the consent form
+  /// was still on screen never got to send its request — it declined instead of
+  /// failing, so the retry ladder never started. This is its second chance.
+  void _onRequestGateOpened() {
+    if (!mounted || _loading || _ad != null || _requestedWidth <= 0) return;
+    _retryTimer?.cancel();
+    _attempt = 0;
+    unawaited(_load(_requestedWidth));
   }
 
   Future<void> _load(int width) async {
@@ -111,10 +125,28 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
 
     final unitId = widget.adUnitId ?? runtime.config.adUnitIds.banner;
     if (unitId.isEmpty) return;
-    if (!await runtime.ensureInitialized()) return;
-    if (!runtime.canRequestAds) return;
 
+    // Consent may still be gathering — the user can take as long as they like
+    // with the UMP form, and the first frame of the app is drawn behind it.
+    // Subscribing before the gates below means a load declined for being early
+    // is retried the moment requests are allowed.
+    if (!_watchingGate) {
+      _watchingGate = true;
+      runtime.requestGateOpened.addListener(_onRequestGateOpened);
+    }
+
+    // Claimed before the first await, not after: the gate can open while this
+    // call is still waiting on consent, and two loads would then race for the
+    // same slot.
     _loading = true;
+
+    if (!await runtime.ensureInitialized() ||
+        !runtime.canRequestAds ||
+        !mounted) {
+      _loading = false;
+      return;
+    }
+
     _disposeAd();
 
     try {

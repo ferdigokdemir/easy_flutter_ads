@@ -30,9 +30,12 @@ class RewardedAdManager extends FullScreenAdManager<RewardedAd> {
   ///
   /// Returns null when the ad could not be shown *or* when the user dismissed
   /// it before earning the reward — in both cases you must not grant anything.
+  ///
+  /// [maxLoadWait] defaults to [FullScreenAdManager.defaultMaxLoadWait]; pass
+  /// an explicit null to wait as long as the SDK takes.
   Future<EasyAdReward?> showForReward({
     bool loadIfMissing = true,
-    Duration? maxLoadWait,
+    Duration? maxLoadWait = FullScreenAdManager.defaultMaxLoadWait,
   }) async {
     _reward = null;
     final shown = await show(

@@ -1,3 +1,21 @@
+## 0.1.5
+
+- `EasyBannerAd` no longer stays empty when the user takes their time with the
+  UMP consent form. A banner mounted while the form is still on screen used to
+  *decline* its load — no request was sent, so the retry ladder never started
+  and the slot stayed blank until the widget happened to be rebuilt from
+  scratch (a tab switch, a pushed route coming back). It now watches the
+  request gate and loads the moment consent resolves. The same gate reopens if
+  `MobileAds.initialize()` finishes after `sdkInitTimeout`, so a banner that
+  failed against a half-started SDK reloads instead of burning its retries.
+- `show()` and `showForReward()` now default `maxLoadWait` to 15 seconds
+  instead of no budget at all. An unbounded wait was never what a call site
+  wanted: it either had a spinner up (and 15s is plenty) or had none (and an
+  open-ended freeze was a bug). Pass an explicit null to restore the old
+  behaviour. The constant is `FullScreenAdManager.defaultMaxLoadWait`.
+  `showOnColdStart()` is unaffected — it has always passed
+  `appOpenSplashMaxWait`.
+
 ## 0.1.4
 
 - `appOpenCooldown` and `interstitialCooldown` are now persisted through the

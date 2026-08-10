@@ -53,6 +53,17 @@ class AdRuntime {
   bool get isInitialized => _initialized;
   bool _initialized = false;
 
+  /// Bumped every time the package enters a state where ad requests are
+  /// allowed: the SDK is initialized *and* UMP consent has been resolved.
+  ///
+  /// Anything that had to decline a load because it ran too early — a banner
+  /// mounted while the consent form is still on screen — listens here and tries
+  /// again, instead of staying empty until it happens to be rebuilt from
+  /// scratch. A counter rather than a flag: the gate can open more than once
+  /// (an adapter finishing after [EasyAdsConfig.sdkInitTimeout], consent
+  /// arriving late), and every opening deserves a fresh attempt.
+  final ValueNotifier<int> requestGateOpened = ValueNotifier(0);
+
   /// Set by [EasyAds]. Managers call this before every load so the SDK is
   /// guaranteed to be up — mediation adapters only join requests made after
   /// initialization completes.
@@ -65,7 +76,13 @@ class AdRuntime {
 
   /// Whether UMP allows ad requests. Updated by [EasyAds] after consent is
   /// gathered; fail-open (true) when the consent SDK itself errors out.
-  bool canRequestAds = true;
+  bool get canRequestAds => _canRequestAds;
+  set canRequestAds(bool value) {
+    _canRequestAds = value;
+    _openRequestGateIfReady();
+  }
+
+  bool _canRequestAds = true;
 
   /// True while any full screen ad (App Open, interstitial, rewarded) is on
   /// screen.
@@ -106,8 +123,18 @@ class AdRuntime {
     }
   }
 
-  /// Marks the SDK as initialized.
-  void markInitialized() => _initialized = true;
+  /// Marks the SDK as initialized. Safe to call twice: the second call is how
+  /// a load that timed out on [EasyAdsConfig.sdkInitTimeout] tells listeners
+  /// the SDK really is up now.
+  void markInitialized() {
+    _initialized = true;
+    _openRequestGateIfReady();
+  }
+
+  void _openRequestGateIfReady() {
+    if (!_initialized || !_canRequestAds) return;
+    requestGateOpened.value++;
+  }
 
   /// Emits [event] to the host app and to the debug log.
   void emit(EasyAdEvent event) {
