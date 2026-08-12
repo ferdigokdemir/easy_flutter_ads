@@ -32,9 +32,9 @@ class EasyAdsConfig {
     this.interstitialCooldown = const Duration(seconds: 180),
     this.minGapAfterFullScreenAd = const Duration(seconds: 120),
     this.appOpenSplashMaxWait = const Duration(seconds: 5),
-    this.appOpenMinSessions = 3,
-    this.appOpenDailyCap,
-    this.interstitialDailyCap,
+    this.appOpenMinSessions = 1,
+    this.appOpenDailyCap = 3,
+    this.interstitialDailyCap = 6,
     this.collapsibleBannerOncePerSession = true,
     this.testDeviceIds = const [],
     this.allowTestDevicesInRelease = false,
@@ -166,15 +166,31 @@ class EasyAdsConfig {
   /// Number of app sessions before the first App Open ad is allowed.
   ///
   /// Google's guidance: "Show your first app open ad after your users have
-  /// used your app a few times." Requires a persistent [EasyAdsStore].
+  /// used your app a few times." The default of one keeps the ad out of the
+  /// very first launch — the session that decides whether the app is kept —
+  /// and lets it in from the second one onwards. Raise it if your onboarding
+  /// spans several sessions. Requires a persistent [EasyAdsStore].
   final int appOpenMinSessions;
 
-  /// Optional per-day cap for App Open ads. Requires a persistent
-  /// [EasyAdsStore].
+  /// Per-day cap for App Open ads, or null for no cap.
+  ///
+  /// Defaults to three. A cooldown alone cannot bound the day: a user who
+  /// switches back and forth all afternoon clears any gap you set and still
+  /// meets the format on every return, which is what makes App Open the format
+  /// users name when they uninstall over ads.
+  ///
+  /// Requires a persistent [EasyAdsStore] — with the in-memory default the
+  /// counter resets on every cold start, which is exactly when App Open ads
+  /// show.
   final int? appOpenDailyCap;
 
-  /// Optional per-day cap for interstitials. Requires a persistent
-  /// [EasyAdsStore].
+  /// Per-day cap for interstitials, or null for no cap.
+  ///
+  /// Defaults to six. [interstitialCooldown] bounds the interval; this bounds
+  /// the total, so a long session cannot turn into a dozen full screen ads no
+  /// matter how patiently the user waits out each gap.
+  ///
+  /// Requires a persistent [EasyAdsStore].
   final int? interstitialDailyCap;
 
   /// Requests a collapsible banner at most once per app session.

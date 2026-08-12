@@ -248,6 +248,36 @@ void main() {
       now = now.add(const Duration(days: 1));
       expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
     });
+
+    test('App Open ads default to three a day', () async {
+      final runtime = buildRuntime();
+
+      for (var i = 0; i < 3; i++) {
+        expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
+        await runtime.noteShown(EasyAdFormat.appOpen);
+      }
+
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.appOpen),
+        EasyAdSkipReason.dailyCapReached,
+      );
+    });
+
+    test('interstitials default to six a day', () async {
+      final runtime = buildRuntime();
+
+      for (var i = 0; i < 6; i++) {
+        expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
+        await runtime.noteShown(EasyAdFormat.interstitial);
+        // Step past the 180 second cooldown so the cap is what bites.
+        now = now.add(const Duration(seconds: 181));
+      }
+
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.interstitial),
+        EasyAdSkipReason.dailyCapReached,
+      );
+    });
   });
 
   group('session counter', () {

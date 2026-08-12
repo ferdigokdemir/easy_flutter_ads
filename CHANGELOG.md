@@ -1,3 +1,17 @@
+## 0.1.7
+
+- `appOpenDailyCap` now defaults to 3 and `interstitialDailyCap` to 6, instead
+  of no cap at all. A cooldown bounds the interval between two ads but never the
+  day: a user who switches back and forth all afternoon clears any gap you set
+  and still meets an App Open ad on every return. Both caps need a persistent
+  `EasyAdsStore` — with the in-memory default the App Open counter resets on
+  every cold start, which is exactly when the format shows. Pass
+  `clearAppOpenDailyCap: true` / `clearInterstitialDailyCap: true` through
+  `copyWith` to opt back out.
+- `appOpenMinSessions` now defaults to 1 instead of 3. Skipping the very first
+  launch is what the guidance is about — the session that decides whether the
+  app is kept — and three sessions withheld more inventory than that buys.
+
 ## 0.1.6
 
 - `interstitialCooldown` now defaults to 180 seconds instead of zero. App flow

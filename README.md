@@ -111,7 +111,9 @@ await EasyAds.instance.setAdsEnabled(false);
 ```
 
 Session thresholds (`appOpenMinSessions`, "show the first App Open ad after a few visits"), daily
-caps, and cooldowns need persistence. Supply an `EasyAdsStore`:
+caps, and cooldowns need persistence — and the defaults already include caps (3 App Open ads and 6
+interstitials a day), so this is not optional bookkeeping: without a store the App Open counter
+resets on every cold start, which is exactly when the format shows. Supply an `EasyAdsStore`:
 
 ```dart
 class PrefsAdsStore implements EasyAdsStore {
