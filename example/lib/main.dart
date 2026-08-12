@@ -2,22 +2,9 @@ import 'dart:async';
 
 import 'package:easy_flutter_ads/easy_flutter_ads.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const ExampleApp());
-}
-
-/// Persists the session counter and daily caps across cold starts. Without a
-/// store like this, `appOpenMinSessions` and the daily caps do nothing.
-class PrefsAdsStore implements EasyAdsStore {
-  @override
-  Future<int> readInt(String key) async =>
-      (await SharedPreferences.getInstance()).getInt(key) ?? 0;
-
-  @override
-  Future<void> writeInt(String key, int value) async =>
-      (await SharedPreferences.getInstance()).setInt(key, value);
 }
 
 /// Root widget.
@@ -58,8 +45,9 @@ class _SplashPageState extends State<SplashPage> {
     // the time the ad is dismissed.
     final navigator = Navigator.of(context);
 
+    // No `store:` here on purpose — the session counter, the daily caps and the
+    // hourly windows are persisted by default, through shared_preferences.
     await EasyAds.instance.initialize(
-      store: PrefsAdsStore(),
       config: EasyAdsConfig(
         adUnitIds: const EasyAdUnitIds.test(),
         verboseLogging: true,

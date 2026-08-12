@@ -32,7 +32,7 @@ final reward = await EasyAds.instance.rewarded.showForReward();
 | **Placement policy** | The App Open rules AdMob actually enforces — see below. |
 | **Revenue** | `onPaidEvent` is wired automatically for every format. Retrofitting impression-level revenue later is painful. |
 | **Kill switches** | One `enabled` flag for subscribers, one per format, all hot-swappable from Remote Config. |
-| **Frequency** | Cooldowns, a rolling hourly cap for interstitials and per-format daily caps — all enforced client side, so a capped request is never sent (AdMob's dashboard cap returns a no-fill instead). Preloading follows the same rules: a spent daily cap stops it, a cooldown loads through, and a spent hour decides on TTL. |
+| **Frequency** | Cooldowns, rolling hourly caps and daily caps, per format — all enforced client side, so a capped request is never sent (AdMob's dashboard cap returns a no-fill instead). Preloading follows the same rules: a spent daily cap stops it, a cooldown loads through, and a spent hour decides on TTL. |
 | **Never crashes** | Every path swallows its exceptions and reports them via `onError`. A broken ad stack degrades to "no ads". |
 
 ## App Open ads: the part most implementations get wrong
@@ -93,6 +93,14 @@ each open one put two full screen ads seconds apart the moment a user taps throu
 last impressions are persisted, so killing and relaunching the app does not hand the user a fresh
 cooldown.
 
+What does bound the burst is `appOpenHourlyCap` (2 by default), because the format's trigger is a
+burst by nature: a user alternating between your app and a messenger produces a foreground transition
+every time, and without an hourly bound the whole day's inventory is spent before they have used the
+app once with intent. A cooldown would space those out too, but it charges the user who returns twice
+all day exactly as much as the one who returns twice a minute — the rolling hour only bites the
+second. Both hourly caps keep only the last `cap` impressions, in a ring buffer, so the check costs
+two reads no matter how heavily the app is used.
+
 ## Configuration
 
 Every field of `EasyAdsConfig` is documented inline and hot-swappable:
@@ -110,21 +118,26 @@ await EasyAds.instance.updateConfig(
 await EasyAds.instance.setAdsEnabled(false);
 ```
 
-Session thresholds (`appOpenMinSessions`, "show the first App Open ad after a few visits"), daily
-caps, and cooldowns need persistence — and the defaults already include caps (3 App Open ads and 6
-interstitials a day), so this is not optional bookkeeping: without a store the App Open counter
-resets on every cold start, which is exactly when the format shows. Supply an `EasyAdsStore`:
+### Persistence is on by default
+
+Session thresholds (`appOpenMinSessions`), daily caps, hourly windows and cooldowns are all
+persistence problems first — a cap that forgets is not a cap — so `initialize` stores them for you,
+through `shared_preferences`. Nothing to wire up:
 
 ```dart
-class PrefsAdsStore implements EasyAdsStore {
-  @override
-  Future<int> readInt(String key) async =>
-      (await SharedPreferences.getInstance()).getInt(key) ?? 0;
+await EasyAds.instance.initialize(config: config); // counters survive cold starts
+```
 
-  @override
-  Future<void> writeInt(String key, int value) async =>
-      (await SharedPreferences.getInstance()).setInt(key, value);
-}
+This matters most for App Open: it shows precisely at cold start, the moment an in-memory counter
+would have just been wiped, so an app without persistence effectively had *no* App Open cap at all.
+
+Keys are namespaced under `easy_ads.`. If the platform channel is unavailable the store degrades to
+memory and reports through `onError` rather than failing your startup. To keep the counters
+elsewhere — a database, an encrypted store, a backend the caps are shared with — implement
+`EasyAdsStore` and pass it; to deliberately forget them every launch, pass `MemoryEasyAdsStore()`:
+
+```dart
+await EasyAds.instance.initialize(config: config, store: MyStore());
 ```
 
 ## Banners

@@ -15,6 +15,7 @@ import 'ad_runtime.dart';
 import 'app_state_watcher.dart';
 import 'easy_ad_event.dart';
 import 'easy_ads_store.dart';
+import 'prefs_easy_ads_store.dart';
 
 /// The package entry point.
 ///
@@ -54,6 +55,7 @@ class EasyAds {
   Future<bool>? _initFuture;
   bool _configured = false;
   bool _sessionCounted = false;
+  bool _storeInstalled = false;
 
   /// Managers exist from the first access, even before [initialize].
   ///
@@ -121,8 +123,11 @@ class EasyAds {
   /// reported through [EasyAdsConfig.onError], so a broken ad stack degrades
   /// to "no ads" instead of "no app".
   ///
-  /// Supply a persistent [store] if you use session thresholds, daily caps, or
-  /// cooldowns — the in-memory default resets on every cold start.
+  /// Session thresholds, daily caps, hourly windows and cooldowns are persisted
+  /// for you: [store] defaults to [PrefsEasyAdsStore], backed by
+  /// `shared_preferences`. Pass your own [EasyAdsStore] to keep the counters
+  /// somewhere else — or [MemoryEasyAdsStore] to deliberately forget them on
+  /// every launch.
   ///
   /// [clock] exists for tests.
   Future<bool> initialize({
@@ -132,7 +137,19 @@ class EasyAds {
   }) async {
     final runtime = _runtime;
     runtime.config = config;
-    if (store != null) runtime.store = store;
+    // Installed once. A second initialize() call that names no store must not
+    // replace one the first call passed, nor throw away the fallback state of
+    // the default store — calling it twice is legitimate, and neither call
+    // necessarily knows what the other did.
+    if (store != null) {
+      runtime.store = store;
+      _storeInstalled = true;
+    } else if (!_storeInstalled) {
+      // The error reporter goes through the runtime, so a config swapped in
+      // later still receives persistence failures.
+      runtime.store = PrefsEasyAdsStore(onError: runtime.logError);
+      _storeInstalled = true;
+    }
     if (clock != null) runtime.clock = clock;
     _configured = true;
 

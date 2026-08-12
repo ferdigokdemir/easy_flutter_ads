@@ -35,6 +35,37 @@ class _CountingManager extends FullScreenAdManager<InterstitialAd> {
   Future<void> performShow(InterstitialAd ad) async {}
 }
 
+/// The same counter for App Open, whose TTL outlasts the rolling hour.
+class _CountingAppOpenManager extends FullScreenAdManager<AppOpenAd> {
+  _CountingAppOpenManager(super.runtime);
+
+  int loads = 0;
+
+  @override
+  EasyAdFormat get format => EasyAdFormat.appOpen;
+
+  @override
+  String get adUnitId => 'test-unit';
+
+  @override
+  Duration get ttl => runtime.config.appOpenAdTtl;
+
+  @override
+  Future<AppOpenAd?> performLoad(String adUnitId, AdRequest request) async {
+    loads++;
+    return null;
+  }
+
+  @override
+  void assignCallback(
+    AppOpenAd ad,
+    FullScreenContentCallback<AppOpenAd> callback,
+  ) {}
+
+  @override
+  Future<void> performShow(AppOpenAd ad) async {}
+}
+
 void main() {
   late DateTime now;
   DateTime clock() => now;
@@ -129,6 +160,43 @@ void main() {
       await manager.preload();
 
       expect(manager.loads, 1);
+    });
+
+    test('a spent App Open hour still loads, the TTL outlasts it', () async {
+      final runtime = AdRuntime(
+        config: const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          appOpenHourlyCap: 1,
+          maxLoadRetries: 0,
+        ),
+        clock: clock,
+      )..ensureInitialized = () async => true;
+      await runtime.noteShown(EasyAdFormat.appOpen);
+
+      final manager = _CountingAppOpenManager(runtime);
+      await manager.preload();
+
+      // The window reopens in 60 minutes and an App Open ad stays fresh for
+      // 3h30m, so the ad is in hand the moment the cap lifts — unlike an
+      // interstitial, which would expire in the cache first.
+      expect(manager.loads, 1);
+    });
+
+    test('a spent App Open daily cap still stops the request', () async {
+      final runtime = AdRuntime(
+        config: const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          appOpenDailyCap: 1,
+          maxLoadRetries: 0,
+        ),
+        clock: clock,
+      )..ensureInitialized = () async => true;
+      await runtime.noteShown(EasyAdFormat.appOpen);
+
+      final manager = _CountingAppOpenManager(runtime);
+      await manager.preload();
+
+      expect(manager.loads, 0);
     });
 
     test('the cap clears when the date rolls over', () async {

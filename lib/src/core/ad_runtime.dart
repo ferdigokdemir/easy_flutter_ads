@@ -242,9 +242,10 @@ class AdRuntime {
   /// The rolling one hour cap configured for [format], if any.
   int? hourlyCapFor(EasyAdFormat format) {
     switch (format) {
+      case EasyAdFormat.appOpen:
+        return config.appOpenHourlyCap;
       case EasyAdFormat.interstitial:
         return config.interstitialHourlyCap;
-      case EasyAdFormat.appOpen:
       case EasyAdFormat.rewarded:
       case EasyAdFormat.rewardedInterstitial:
       case EasyAdFormat.banner:

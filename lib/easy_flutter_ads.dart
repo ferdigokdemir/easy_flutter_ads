@@ -18,6 +18,7 @@ export 'src/core/easy_ad_event.dart';
 export 'src/core/easy_ad_reward.dart';
 export 'src/core/easy_ads.dart';
 export 'src/core/easy_ads_store.dart';
+export 'src/core/prefs_easy_ads_store.dart';
 export 'src/full_screen/full_screen_ad_manager.dart';
 export 'src/full_screen/interstitial_ad_manager.dart';
 export 'src/full_screen/rewarded_ad_manager.dart';

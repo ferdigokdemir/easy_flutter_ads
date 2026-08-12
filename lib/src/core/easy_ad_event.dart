@@ -85,7 +85,8 @@ enum EasyAdSkipReason {
   dailyCapReached,
 
   /// The rolling one hour cap for this format has been reached
-  /// ([EasyAdsConfig.interstitialHourlyCap]).
+  /// ([EasyAdsConfig.appOpenHourlyCap],
+  /// [EasyAdsConfig.interstitialHourlyCap]).
   hourlyCapReached,
 
   /// The user has not opened the app enough times yet

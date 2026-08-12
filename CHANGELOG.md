@@ -1,3 +1,41 @@
+## 0.1.10
+
+- **Frequency controls are now persisted by default.** `EasyAds.initialize`
+  falls back to `PrefsEasyAdsStore` (backed by `shared_preferences`) instead of
+  the in-memory store, so the session counter, daily caps, hourly windows and
+  cooldowns survive a cold start with no wiring in the host app.
+  This closes a silent failure: an app that never passed a `store` got no
+  working caps at all — no error, no log — and App Open, the format with the
+  strictest rules, was hit hardest, because it shows precisely at cold start,
+  the moment an in-memory counter has just been wiped.
+- Adds a dependency on `shared_preferences` (>=2.3.0 <3.0.0). It reads and
+  writes through the same `SharedPreferences.getInstance()` API the README used
+  to document as a hand-written adapter, so an app deleting its own adapter
+  keeps the counters it had rather than handing every user a fresh allowance.
+  Keys stay namespaced under `easy_ads.`.
+- Passing your own `EasyAdsStore` still overrides it; pass `MemoryEasyAdsStore()`
+  to deliberately opt out of persistence. If the platform channel is
+  unavailable the store degrades to memory and reports through
+  `EasyAdsConfig.onError` — the old behaviour — rather than failing startup.
+- New `appOpenHourlyCap`, defaulting to 2 — the same rolling window 0.1.9 gave
+  interstitials, now for App Open ads. `appOpenDailyCap` bounds the day but says
+  nothing about how fast the allowance is spent, and this format's trigger is a
+  burst by nature: a user alternating between your app and a messenger produces
+  a foreground transition every time, so all three of the day's App Open ads can
+  be gone before they have used the app once with intent.
+- `appOpenCooldown` stays at zero. A fixed gap would space the burst out too,
+  but it charges the user who returns twice all day as much as the one who
+  returns twice a minute; the rolling hour only bites the second.
+- The window is persisted through `EasyAdsStore` like the interstitial one, so
+  a relaunch cannot clear it — which matters more here, because cold start is
+  exactly when the format shows. Pass `clearAppOpenHourlyCap: true` through
+  `copyWith` to opt back out.
+- No new machinery: `AdRuntime.hourlyCapFor` was already format-agnostic, so the
+  show gate, the ring buffer and the TTL-aware preload decision all applied to
+  App Open the moment the config field existed. In practice preloading is
+  unaffected — a spent hour reopens within 60 minutes and an App Open ad stays
+  fresh for 3h30m, so the ad is in hand the moment the cap lifts.
+
 ## 0.1.9
 
 - New `interstitialHourlyCap`, defaulting to 2. It is the middle term between

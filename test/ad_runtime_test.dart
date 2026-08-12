@@ -233,6 +233,7 @@ void main() {
           adUnitIds: EasyAdUnitIds.test(),
           appOpenCooldown: Duration.zero,
           appOpenDailyCap: 2,
+          appOpenHourlyCap: null,
         ),
       );
 
@@ -250,7 +251,14 @@ void main() {
     });
 
     test('App Open ads default to three a day', () async {
-      final runtime = buildRuntime();
+      // The hourly cap is cleared so the daily one is what bites; the two are
+      // exercised separately.
+      final runtime = buildRuntime(
+        const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          appOpenHourlyCap: null,
+        ),
+      );
 
       for (var i = 0; i < 3; i++) {
         expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
@@ -343,25 +351,46 @@ void main() {
       );
     });
 
-    test('other formats are untouched by it', () async {
-      final runtime = buildRuntime(
-        const EasyAdsConfig(
-          adUnitIds: EasyAdUnitIds.test(),
-          appOpenCooldown: Duration.zero,
-        ),
-      );
+    test('blocks the third App Open ad of the hour', () async {
+      final runtime = buildRuntime();
 
-      for (var i = 0; i < 3; i++) {
-        expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
-        await runtime.noteShown(EasyAdFormat.appOpen);
-      }
+      await runtime.noteShown(EasyAdFormat.appOpen);
+      expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
 
-      // Three App Open ads in one hour: stopped by the daily cap, never by an
-      // hourly one — the cap is interstitial-only.
+      await runtime.noteShown(EasyAdFormat.appOpen);
+      // The third would still be inside the daily cap of three, so only the
+      // hourly one can stop it — which is the point: a burst of app switching
+      // must not spend the whole day's allowance in ten minutes.
       expect(
         await runtime.evaluateGates(EasyAdFormat.appOpen),
-        EasyAdSkipReason.dailyCapReached,
+        EasyAdSkipReason.hourlyCapReached,
       );
+
+      now = now.add(const Duration(minutes: 61));
+      expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
+    });
+
+    test('App Open and interstitial windows are counted separately', () async {
+      final runtime = buildRuntime();
+
+      await runtime.noteShown(EasyAdFormat.appOpen);
+      await runtime.noteShown(EasyAdFormat.appOpen);
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.appOpen),
+        EasyAdSkipReason.hourlyCapReached,
+      );
+
+      // A spent App Open hour says nothing about the interstitial one.
+      expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
+    });
+
+    test('other formats are untouched by it', () async {
+      final runtime = buildRuntime();
+
+      for (var i = 0; i < 5; i++) {
+        expect(await runtime.evaluateGates(EasyAdFormat.rewarded), isNull);
+        await runtime.noteShown(EasyAdFormat.rewarded);
+      }
     });
   });
 
@@ -430,6 +459,12 @@ void main() {
 
       expect(config.copyWith().appOpenDailyCap, 5);
       expect(config.copyWith(clearAppOpenDailyCap: true).appOpenDailyCap, isNull);
+
+      expect(config.copyWith().appOpenHourlyCap, 2);
+      expect(
+        config.copyWith(clearAppOpenHourlyCap: true).appOpenHourlyCap,
+        isNull,
+      );
     });
   });
 }

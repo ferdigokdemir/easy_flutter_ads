@@ -1,25 +1,23 @@
 /// Persistence hook for the values that must survive an app restart: the
-/// number of sessions so far, per-day show caps, and the last impression of
-/// each cooldown-gated format.
+/// number of sessions so far, daily caps, the rolling hourly windows, and the
+/// last impression of each cooldown-gated format.
 ///
-/// The package deliberately does not depend on `shared_preferences` — supply a
-/// thin adapter instead:
+/// You do not have to implement this — `EasyAds.initialize` defaults to
+/// [PrefsEasyAdsStore], which is backed by `shared_preferences`. Implement it
+/// only to keep the counters somewhere else (a database, an encrypted store, a
+/// backend the caps are shared with):
 ///
 /// ```dart
-/// class PrefsStore implements EasyAdsStore {
+/// class MyStore implements EasyAdsStore {
 ///   @override
-///   Future<int> readInt(String key) async =>
-///       (await SharedPreferences.getInstance()).getInt(key) ?? 0;
+///   Future<int> readInt(String key) async => ...;
 ///
 ///   @override
-///   Future<void> writeInt(String key, int value) async =>
-///       (await SharedPreferences.getInstance()).setInt(key, value);
+///   Future<void> writeInt(String key, int value) async => ...;
 /// }
 /// ```
 ///
-/// With the default [MemoryEasyAdsStore] everything resets on every cold
-/// start, which makes session thresholds, daily caps, and cooldowns
-/// ineffective.
+/// Keys are namespaced under `easy_ads.` and hold plain ints.
 abstract class EasyAdsStore {
   /// Returns the stored value, or 0 when the key is absent.
   Future<int> readInt(String key);
@@ -28,7 +26,11 @@ abstract class EasyAdsStore {
   Future<void> writeInt(String key, int value);
 }
 
-/// In-memory [EasyAdsStore] used when the host app supplies none.
+/// In-memory [EasyAdsStore]. Everything it holds dies with the process, so
+/// session thresholds, daily caps and hourly windows reset on every cold start.
+///
+/// Pass it explicitly to opt out of persistence; the internal default before a
+/// store is installed, and what the unit tests run against.
 class MemoryEasyAdsStore implements EasyAdsStore {
   final Map<String, int> _values = {};
 

@@ -34,6 +34,7 @@ class EasyAdsConfig {
     this.appOpenSplashMaxWait = const Duration(seconds: 5),
     this.appOpenMinSessions = 1,
     this.appOpenDailyCap = 3,
+    this.appOpenHourlyCap = 2,
     this.interstitialDailyCap = 6,
     this.interstitialHourlyCap = 2,
     this.collapsibleBannerOncePerSession = true,
@@ -118,8 +119,9 @@ class EasyAdsConfig {
   /// here over AdMob's dashboard frequency cap: a capped request comes back as
   /// a no-fill, whereas this gate never sends the request at all.
   ///
-  /// Defaults to zero (no cooldown); `minGapAfterFullScreenAd` and
-  /// `appOpenMinSessions` already guard the annoying cases.
+  /// Defaults to zero (no cooldown); [minGapAfterFullScreenAd],
+  /// [appOpenMinSessions] and [appOpenHourlyCap] already guard the annoying
+  /// cases without charging the occasional returner for the frequent one.
   ///
   /// The last impression is persisted, so a relaunch cannot skip a running
   /// cooldown — supply a persistent [EasyAdsStore] or the timestamp dies with
@@ -184,6 +186,26 @@ class EasyAdsConfig {
   /// counter resets on every cold start, which is exactly when App Open ads
   /// show.
   final int? appOpenDailyCap;
+
+  /// Rolling one hour cap for App Open ads, or null for no cap.
+  ///
+  /// Defaults to two. [appOpenDailyCap] bounds the day but says nothing about
+  /// how fast the allowance is spent, and the format's own trigger is a burst
+  /// by nature: a user who alternates between your app and a messenger for ten
+  /// minutes produces a foreground transition every time, so the whole day's
+  /// App Open inventory can be gone before they have used the app once with
+  /// intent. [appOpenCooldown] could space those out, but it defaults to zero
+  /// precisely because a fixed gap punishes the user who returns twice all day
+  /// as hard as the one who returns twice a minute.
+  ///
+  /// The window slides — it is "in the last 60 minutes", not "since the top of
+  /// the hour", so the boundary cannot be used to double up. Only the last
+  /// [appOpenHourlyCap] impressions are stored, in a small ring buffer, so the
+  /// bookkeeping does not grow with usage.
+  ///
+  /// Requires a persistent [EasyAdsStore] — with the in-memory default the ring
+  /// buffer resets on every cold start, which is exactly when the format shows.
+  final int? appOpenHourlyCap;
 
   /// Per-day cap for interstitials, or null for no cap.
   ///
@@ -289,6 +311,8 @@ class EasyAdsConfig {
     int? appOpenMinSessions,
     int? appOpenDailyCap,
     bool clearAppOpenDailyCap = false,
+    int? appOpenHourlyCap,
+    bool clearAppOpenHourlyCap = false,
     int? interstitialDailyCap,
     bool clearInterstitialDailyCap = false,
     int? interstitialHourlyCap,
@@ -333,6 +357,9 @@ class EasyAdsConfig {
       appOpenDailyCap: clearAppOpenDailyCap
           ? null
           : (appOpenDailyCap ?? this.appOpenDailyCap),
+      appOpenHourlyCap: clearAppOpenHourlyCap
+          ? null
+          : (appOpenHourlyCap ?? this.appOpenHourlyCap),
       interstitialDailyCap: clearInterstitialDailyCap
           ? null
           : (interstitialDailyCap ?? this.interstitialDailyCap),
