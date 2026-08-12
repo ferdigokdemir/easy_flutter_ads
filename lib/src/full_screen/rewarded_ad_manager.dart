@@ -24,7 +24,7 @@ class RewardedAdManager extends FullScreenAdManager<RewardedAd> {
   String get adUnitId => runtime.config.adUnitIds.rewarded;
 
   @override
-  Duration get ttl => runtime.config.fullScreenAdTtl;
+  Duration get ttl => runtime.config.fullScreenTtl;
 
   /// Shows the ad and returns the reward the user earned.
   ///

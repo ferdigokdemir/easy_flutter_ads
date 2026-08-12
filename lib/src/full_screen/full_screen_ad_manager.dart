@@ -87,7 +87,7 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
     if (isReady || _retrying || _loading != null) return;
     if (await runtime.isDailyCapReached(format)) return;
 
-    final reopensAt = await runtime.hourlyWindowReopensAt(format);
+    final reopensAt = await runtime.capWindowReopensAt(format);
     if (reopensAt != null && reopensAt.difference(runtime.now) > ttl) return;
 
     if (!await runtime.ensureInitialized()) return;

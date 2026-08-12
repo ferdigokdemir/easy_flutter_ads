@@ -52,7 +52,7 @@ void main() {
     // no caps at all.
     expect(
       await runtime.evaluateGates(EasyAdFormat.appOpen),
-      EasyAdSkipReason.hourlyCapReached,
+      EasyAdSkipReason.windowCapReached,
     );
 
     now = now.add(const Duration(minutes: 61));

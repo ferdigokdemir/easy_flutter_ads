@@ -1,3 +1,53 @@
+## 0.2.0
+
+Breaking. The rolling cap window was hardcoded to one hour, so a policy like
+"at most 2 in any 4 hours" could not be written — it had to be reverse-
+engineered into a cooldown, which is a different rule that happens to look the
+same at the boundary. The window is now a field, and the names were
+straightened out while the break was already happening.
+
+**The window is configurable**
+
+- `appOpenHourlyCap` → `appOpenWindowCap`, `interstitialHourlyCap` →
+  `interstitialWindowCap`. Both still default to 2.
+- New `appOpenWindow` and `interstitialWindow`, both defaulting to one hour —
+  the old hardcoded value, so the defaults behave exactly as before.
+- `EasyAdSkipReason.hourlyCapReached` → `windowCapReached`.
+- `AdRuntime.hourlyCapFor` → `windowCapFor`, `hourlyWindowReopensAt` →
+  `capWindowReopensAt`, new `windowFor`. The `hourlyWindow` constant is gone.
+- The ring buffer is unchanged and still costs two reads per check, whatever
+  the window length: only the last `cap` impressions are kept.
+
+Three independent gates now compose cleanly — how many per window, how long the
+window is, and the minimum gap between two ads:
+
+```dart
+appOpenWindowCap: 2,
+appOpenWindow: Duration(hours: 4),
+appOpenCooldown: Duration(seconds: 180),
+```
+
+**Names follow one rule**
+
+Stray `Ad` infixes are gone, and a name says what it gates rather than where it
+is called from:
+
+- `appOpenAdTtl` → `appOpenTtl`
+- `fullScreenAdTtl` → `fullScreenTtl`
+- `appOpenSplashMaxWait` → `appOpenColdStartMaxWait`, which pairs with
+  `appOpenColdStartEnabled` and names the method it bounds
+  (`showOnColdStart`). "Splash" was the host app's concept, not the package's.
+- `copyWith`: `clearAppOpenHourlyCap` → `clearAppOpenWindowCap`,
+  `clearInterstitialHourlyCap` → `clearInterstitialWindowCap`.
+
+**Migrating**
+
+Renames only — no behaviour changes and no gate was added or removed. Rename the
+fields you set; anything you left at its default keeps working untouched. If you
+drive the config from Remote Config, the recommended key convention is the field
+name plus a unit suffix for durations: `appOpenWindowMinutes`,
+`appOpenCooldownSeconds`, `appOpenTtlMinutes`.
+
 ## 0.1.10
 
 - **Frequency controls are now persisted by default.** `EasyAds.initialize`

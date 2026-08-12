@@ -34,7 +34,7 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
   String get adUnitId => runtime.config.adUnitIds.appOpen;
 
   @override
-  Duration get ttl => runtime.config.appOpenAdTtl;
+  Duration get ttl => runtime.config.appOpenTtl;
 
   /// Shows the cold start ad **while your splash screen is still on screen**.
   ///
@@ -47,7 +47,7 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
   /// navigator.pushReplacementNamed(Routes.home);
   /// ```
   ///
-  /// The wait is capped by [EasyAdsConfig.appOpenSplashMaxWait]; if the ad is
+  /// The wait is capped by [EasyAdsConfig.appOpenColdStartMaxWait]; if the ad is
   /// not ready by then the show is cancelled for good, so it can never surface
   /// later on top of app content. The in-flight load keeps running and the ad
   /// is kept for the next opportunity.
@@ -67,7 +67,7 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
     }
 
     return show(
-      maxLoadWait: maxWait ?? runtime.config.appOpenSplashMaxWait,
+      maxLoadWait: maxWait ?? runtime.config.appOpenColdStartMaxWait,
     );
   }
 

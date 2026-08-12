@@ -46,7 +46,7 @@ class _SplashPageState extends State<SplashPage> {
     final navigator = Navigator.of(context);
 
     // No `store:` here on purpose — the session counter, the daily caps and the
-    // hourly windows are persisted by default, through shared_preferences.
+    // rolling windows are persisted by default, through shared_preferences.
     await EasyAds.instance.initialize(
       config: EasyAdsConfig(
         adUnitIds: const EasyAdUnitIds.test(),
@@ -63,7 +63,7 @@ class _SplashPageState extends State<SplashPage> {
     // Your own startup work (config fetch, auth, migrations) goes here.
     await Future<void>.delayed(const Duration(milliseconds: 400));
 
-    // Shows only if an ad is ready within appOpenSplashMaxWait; otherwise the
+    // Shows only if an ad is ready within appOpenColdStartMaxWait; otherwise the
     // launch continues without one.
     await EasyAds.instance.appOpen.showOnColdStart();
 

@@ -58,7 +58,7 @@ void main() {
 
       expect(
         await second.evaluateGates(EasyAdFormat.appOpen),
-        EasyAdSkipReason.hourlyCapReached,
+        EasyAdSkipReason.windowCapReached,
       );
 
       now = now.add(const Duration(minutes: 51));

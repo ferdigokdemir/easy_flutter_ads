@@ -30,9 +30,6 @@ class AdRuntime {
   static const _windowSlotPrefix = 'easy_ads.window_slot.';
   static const _windowCursorPrefix = 'easy_ads.window_cursor.';
 
-  /// The span [hourlyCapFor] counts impressions over.
-  static const hourlyWindow = Duration(hours: 1);
-
   /// The formats [evaluateGates] applies a cooldown to. Their last impression
   /// is persisted, so killing and relaunching the app cannot skip a cooldown
   /// that is still running.
@@ -239,17 +236,31 @@ class AdRuntime {
     }
   }
 
-  /// The rolling one hour cap configured for [format], if any.
-  int? hourlyCapFor(EasyAdFormat format) {
+  /// The rolling window cap configured for [format], if any.
+  int? windowCapFor(EasyAdFormat format) {
     switch (format) {
       case EasyAdFormat.appOpen:
-        return config.appOpenHourlyCap;
+        return config.appOpenWindowCap;
       case EasyAdFormat.interstitial:
-        return config.interstitialHourlyCap;
+        return config.interstitialWindowCap;
       case EasyAdFormat.rewarded:
       case EasyAdFormat.rewardedInterstitial:
       case EasyAdFormat.banner:
         return null;
+    }
+  }
+
+  /// The span [windowCapFor] counts impressions over.
+  Duration windowFor(EasyAdFormat format) {
+    switch (format) {
+      case EasyAdFormat.appOpen:
+        return config.appOpenWindow;
+      case EasyAdFormat.interstitial:
+        return config.interstitialWindow;
+      case EasyAdFormat.rewarded:
+      case EasyAdFormat.rewardedInterstitial:
+      case EasyAdFormat.banner:
+        return Duration.zero;
     }
   }
 
@@ -305,8 +316,8 @@ class AdRuntime {
         return EasyAdSkipReason.cooldown;
       }
 
-      if (await hourlyWindowReopensAt(format) != null) {
-        return EasyAdSkipReason.hourlyCapReached;
+      if (await capWindowReopensAt(format) != null) {
+        return EasyAdSkipReason.windowCapReached;
       }
 
       if (await isDailyCapReached(format)) {
@@ -330,7 +341,7 @@ class AdRuntime {
     return await _dailyCount(format) >= cap;
   }
 
-  /// When the rolling hour frees a slot for [format], or null when one is
+  /// When the rolling window frees a slot for [format], or null when one is
   /// free right now.
   ///
   /// Returns a time rather than a bool because a preload needs to know *how
@@ -341,10 +352,13 @@ class AdRuntime {
   /// Only the last `cap` impressions are kept, in a ring buffer whose cursor
   /// points at the oldest of them — the one that has to age out for a slot to
   /// free up. That makes the check two reads regardless of how much the user
-  /// uses the app.
-  Future<DateTime?> hourlyWindowReopensAt(EasyAdFormat format) async {
-    final cap = hourlyCapFor(format);
+  /// uses the app, and independent of how long the window is.
+  Future<DateTime?> capWindowReopensAt(EasyAdFormat format) async {
+    final cap = windowCapFor(format);
     if (cap == null || cap <= 0) return null;
+
+    final window = windowFor(format);
+    if (window <= Duration.zero) return null;
 
     final cursor = await store.readInt('$_windowCursorPrefix${format.name}');
     final oldest = await store.readInt(
@@ -358,7 +372,7 @@ class AdRuntime {
     // Honouring it would freeze the format until the clock catches up.
     if (shownAt.isAfter(now)) return null;
 
-    final reopensAt = shownAt.add(hourlyWindow);
+    final reopensAt = shownAt.add(window);
     return reopensAt.isAfter(now) ? reopensAt : null;
   }
 
@@ -373,18 +387,18 @@ class AdRuntime {
         shownAt.millisecondsSinceEpoch,
       );
     }
-    final hourlyCap = hourlyCapFor(format);
-    if (hourlyCap != null && hourlyCap > 0) {
+    final windowCap = windowCapFor(format);
+    if (windowCap != null && windowCap > 0) {
       // Overwrite the slot the cursor points at — the oldest of the `cap`
       // impressions kept — then move the cursor to the next oldest.
       final cursor = await store.readInt('$_windowCursorPrefix${format.name}');
       await store.writeInt(
-        '$_windowSlotPrefix${format.name}.${cursor % hourlyCap}',
+        '$_windowSlotPrefix${format.name}.${cursor % windowCap}',
         shownAt.millisecondsSinceEpoch,
       );
       await store.writeInt(
         '$_windowCursorPrefix${format.name}',
-        (cursor + 1) % hourlyCap,
+        (cursor + 1) % windowCap,
       );
     }
 

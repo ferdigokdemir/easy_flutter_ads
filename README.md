@@ -9,7 +9,6 @@ ad serving limited. `easy_flutter_ads` is that layer, written once.
 ```dart
 await EasyAds.instance.initialize(
   config: EasyAdsConfig(adUnitIds: const EasyAdUnitIds.test()),
-  store: PrefsAdsStore(),
 );
 
 EasyAds.instance.preloadAll();
@@ -32,7 +31,7 @@ final reward = await EasyAds.instance.rewarded.showForReward();
 | **Placement policy** | The App Open rules AdMob actually enforces — see below. |
 | **Revenue** | `onPaidEvent` is wired automatically for every format. Retrofitting impression-level revenue later is painful. |
 | **Kill switches** | One `enabled` flag for subscribers, one per format, all hot-swappable from Remote Config. |
-| **Frequency** | Cooldowns, rolling hourly caps and daily caps, per format — all enforced client side, so a capped request is never sent (AdMob's dashboard cap returns a no-fill instead). Preloading follows the same rules: a spent daily cap stops it, a cooldown loads through, and a spent hour decides on TTL. |
+| **Frequency** | Cooldowns, rolling windows of any length, and daily caps, per format — all enforced client side, so a capped request is never sent (AdMob's dashboard cap returns a no-fill instead). Preloading follows the same rules: a spent daily cap stops it, a cooldown loads through, and a spent window decides on TTL. |
 | **Never crashes** | Every path swallows its exceptions and reports them via `onError`. A broken ad stack degrades to "no ads". |
 
 ## App Open ads: the part most implementations get wrong
@@ -54,7 +53,7 @@ await EasyAds.instance.appOpen.showOnColdStart();
 navigator.pushReplacementNamed(Routes.home);
 ```
 
-The wait is capped by `appOpenSplashMaxWait` (5s default). If the ad is not ready in time the show is
+The wait is capped by `appOpenColdStartMaxWait` (5s default). If the ad is not ready in time the show is
 **cancelled**, not deferred — it can never appear later, on top of content the user is already using.
 The load keeps running in the background, so the ad is kept for the next opportunity.
 
@@ -93,13 +92,29 @@ each open one put two full screen ads seconds apart the moment a user taps throu
 last impressions are persisted, so killing and relaunching the app does not hand the user a fresh
 cooldown.
 
-What does bound the burst is `appOpenHourlyCap` (2 by default), because the format's trigger is a
+What does bound the burst is `appOpenWindowCap` (2 by default), because the format's trigger is a
 burst by nature: a user alternating between your app and a messenger produces a foreground transition
-every time, and without an hourly bound the whole day's inventory is spent before they have used the
-app once with intent. A cooldown would space those out too, but it charges the user who returns twice
-all day exactly as much as the one who returns twice a minute — the rolling hour only bites the
-second. Both hourly caps keep only the last `cap` impressions, in a ring buffer, so the check costs
-two reads no matter how heavily the app is used.
+every time, and without it the whole day's inventory is spent before they have used the app once with
+intent. A cooldown would space those out too, but it charges the user who returns twice all day
+exactly as much as the one who returns twice a minute — the window only bites the second.
+
+The window length is yours: `appOpenWindow` (and `interstitialWindow`) default to an hour, but any
+duration works, so a policy is written directly instead of being reverse-engineered into a cooldown.
+
+```dart
+appOpenWindowCap: 2,
+appOpenWindow: Duration(hours: 4),      // at most 2 in any 4 hours
+appOpenCooldown: Duration(seconds: 180) // and never less than 3 min apart
+```
+
+Three independent gates, all of which must pass: **how many** per window, **how long** that window
+is, and the **minimum gap** between two ads. Only the last `cap` impressions are stored, in a ring
+buffer whose cursor points at the oldest, so the check costs two reads no matter how long the window
+or how heavily the app is used.
+
+One thing to keep an eye on: a window (or cooldown) longer than the format's TTL — 3h30m for App
+Open, 50 min for the rest — means an ad preloaded right after an impression expires before the gate
+lifts, so the request is wasted.
 
 ## Configuration
 
@@ -120,7 +135,7 @@ await EasyAds.instance.setAdsEnabled(false);
 
 ### Persistence is on by default
 
-Session thresholds (`appOpenMinSessions`), daily caps, hourly windows and cooldowns are all
+Session thresholds (`appOpenMinSessions`), daily caps, rolling windows and cooldowns are all
 persistence problems first — a cap that forgets is not a cap — so `initialize` stores them for you,
 through `shared_preferences`. Nothing to wire up:
 

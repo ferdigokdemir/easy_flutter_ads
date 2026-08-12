@@ -23,20 +23,22 @@ class EasyAdsConfig {
     this.bannerEnabled = true,
     this.loadTimeout = const Duration(seconds: 15),
     this.sdkInitTimeout = const Duration(seconds: 5),
-    this.fullScreenAdTtl = const Duration(minutes: 50),
-    this.appOpenAdTtl = const Duration(hours: 3, minutes: 30),
+    this.fullScreenTtl = const Duration(minutes: 50),
+    this.appOpenTtl = const Duration(hours: 3, minutes: 30),
     this.maxLoadRetries = 3,
     this.retryBaseDelay = const Duration(seconds: 2),
     this.maxRetryDelay = const Duration(seconds: 32),
     this.appOpenCooldown = Duration.zero,
     this.interstitialCooldown = const Duration(seconds: 180),
     this.minGapAfterFullScreenAd = const Duration(seconds: 120),
-    this.appOpenSplashMaxWait = const Duration(seconds: 5),
+    this.appOpenColdStartMaxWait = const Duration(seconds: 5),
     this.appOpenMinSessions = 1,
     this.appOpenDailyCap = 3,
-    this.appOpenHourlyCap = 2,
+    this.appOpenWindowCap = 2,
+    this.appOpenWindow = const Duration(hours: 1),
     this.interstitialDailyCap = 6,
-    this.interstitialHourlyCap = 2,
+    this.interstitialWindowCap = 2,
+    this.interstitialWindow = const Duration(hours: 1),
     this.collapsibleBannerOncePerSession = true,
     this.testDeviceIds = const [],
     this.allowTestDevicesInRelease = false,
@@ -95,13 +97,17 @@ class EasyAdsConfig {
   /// Google expires these roughly one hour after the request; the 50 minute
   /// default keeps a safety margin, because showing an expired ad fails at
   /// `show()` time — the worst possible moment.
-  final Duration fullScreenAdTtl;
+  final Duration fullScreenTtl;
 
   /// How long a cached App Open ad stays usable.
   ///
   /// "App open ads will time out after four hours" — the 3h30m default keeps
   /// a margin. https://developers.google.com/admob/flutter/app-open
-  final Duration appOpenAdTtl;
+  ///
+  /// Worth checking against [appOpenCooldown] and [appOpenWindow]: an ad
+  /// preloaded right after an impression cannot outlive a wait longer than this
+  /// TTL, so a gate set beyond it guarantees the cached ad expires unused.
+  final Duration appOpenTtl;
 
   /// How many extra attempts the background preloader makes after a no-fill.
   final int maxLoadRetries;
@@ -159,12 +165,12 @@ class EasyAdsConfig {
   /// ad, so it buys the compliance margin for almost no lost impressions.
   final Duration minGapAfterFullScreenAd;
 
-  /// How long the splash screen may wait for the cold start App Open ad.
+  /// How long [AppOpenAdManager.showOnColdStart] may wait for its ad.
   ///
-  /// The ad must fill time the user was already going to wait, not create new
-  /// waiting. If the ad is not ready in time the show is cancelled outright —
-  /// it must never appear once app content is visible.
-  final Duration appOpenSplashMaxWait;
+  /// The ad must fill time the user was already going to wait — your loading
+  /// screen — not create new waiting. If it is not ready in time the show is
+  /// cancelled outright; it must never appear once app content is visible.
+  final Duration appOpenColdStartMaxWait;
 
   /// Number of app sessions before the first App Open ad is allowed.
   ///
@@ -187,25 +193,33 @@ class EasyAdsConfig {
   /// show.
   final int? appOpenDailyCap;
 
-  /// Rolling one hour cap for App Open ads, or null for no cap.
+  /// How many App Open ads may be shown per [appOpenWindow], or null for no
+  /// cap.
   ///
-  /// Defaults to two. [appOpenDailyCap] bounds the day but says nothing about
-  /// how fast the allowance is spent, and the format's own trigger is a burst
-  /// by nature: a user who alternates between your app and a messenger for ten
-  /// minutes produces a foreground transition every time, so the whole day's
-  /// App Open inventory can be gone before they have used the app once with
-  /// intent. [appOpenCooldown] could space those out, but it defaults to zero
-  /// precisely because a fixed gap punishes the user who returns twice all day
-  /// as hard as the one who returns twice a minute.
-  ///
-  /// The window slides — it is "in the last 60 minutes", not "since the top of
-  /// the hour", so the boundary cannot be used to double up. Only the last
-  /// [appOpenHourlyCap] impressions are stored, in a small ring buffer, so the
-  /// bookkeeping does not grow with usage.
+  /// Defaults to two an hour. [appOpenDailyCap] bounds the day but says nothing
+  /// about how fast the allowance is spent, and the format's own trigger is a
+  /// burst by nature: a user who alternates between your app and a messenger
+  /// for ten minutes produces a foreground transition every time, so the whole
+  /// day's App Open inventory can be gone before they have used the app once
+  /// with intent. [appOpenCooldown] could space those out, but a fixed gap
+  /// punishes the user who returns twice all day as hard as the one who returns
+  /// twice a minute.
   ///
   /// Requires a persistent [EasyAdsStore] — with the in-memory default the ring
   /// buffer resets on every cold start, which is exactly when the format shows.
-  final int? appOpenHourlyCap;
+  final int? appOpenWindowCap;
+
+  /// The span [appOpenWindowCap] counts impressions over. Defaults to an hour.
+  ///
+  /// The window slides — it is "in the last N minutes", not "since the top of
+  /// the hour", so the boundary cannot be used to double up. Only the last
+  /// [appOpenWindowCap] impressions are stored, in a small ring buffer whose
+  /// cursor points at the oldest, so the check costs two reads however heavily
+  /// the app is used and the bookkeeping never grows.
+  ///
+  /// Setting it beyond [appOpenTtl] is legal but wasteful: an ad preloaded
+  /// after the cap is spent expires before the window reopens.
+  final Duration appOpenWindow;
 
   /// Per-day cap for interstitials, or null for no cap.
   ///
@@ -216,22 +230,26 @@ class EasyAdsConfig {
   /// Requires a persistent [EasyAdsStore].
   final int? interstitialDailyCap;
 
-  /// Rolling one hour cap for interstitials, or null for no cap.
+  /// How many interstitials may be shown per [interstitialWindow], or null for
+  /// no cap.
   ///
-  /// Defaults to two. This is the middle term between [interstitialCooldown]
-  /// and [interstitialDailyCap], and none of the three can stand in for the
-  /// others: a cooldown alone lets a heavy session run twenty ads an hour, and
-  /// a daily cap alone lets the whole day's allowance burn in the first ten
-  /// minutes. Raising the cooldown to imitate this cap would space the ads a
-  /// user sees far apart even when they have seen none at all today.
-  ///
-  /// The window slides — it is "in the last 60 minutes", not "since the top of
-  /// the hour", so the boundary cannot be used to double up. Only the last
-  /// [interstitialHourlyCap] impressions are stored, in a small ring buffer, so
-  /// the bookkeeping does not grow with usage.
+  /// Defaults to two an hour. This is the middle term between
+  /// [interstitialCooldown] and [interstitialDailyCap], and none of the three
+  /// can stand in for the others: a cooldown alone lets a heavy session run
+  /// twenty ads an hour, and a daily cap alone lets the whole day's allowance
+  /// burn in the first ten minutes. Raising the cooldown to imitate this cap
+  /// would space the ads a user sees far apart even when they have seen none at
+  /// all today.
   ///
   /// Requires a persistent [EasyAdsStore].
-  final int? interstitialHourlyCap;
+  final int? interstitialWindowCap;
+
+  /// The span [interstitialWindowCap] counts impressions over. Defaults to an
+  /// hour.
+  ///
+  /// Slides like [appOpenWindow], with the same ring buffer behind it. Setting
+  /// it beyond [fullScreenTtl] is legal but wasteful.
+  final Duration interstitialWindow;
 
   /// Requests a collapsible banner at most once per app session.
   ///
@@ -299,24 +317,26 @@ class EasyAdsConfig {
     bool? bannerEnabled,
     Duration? loadTimeout,
     Duration? sdkInitTimeout,
-    Duration? fullScreenAdTtl,
-    Duration? appOpenAdTtl,
+    Duration? fullScreenTtl,
+    Duration? appOpenTtl,
     int? maxLoadRetries,
     Duration? retryBaseDelay,
     Duration? maxRetryDelay,
     Duration? appOpenCooldown,
     Duration? interstitialCooldown,
     Duration? minGapAfterFullScreenAd,
-    Duration? appOpenSplashMaxWait,
+    Duration? appOpenColdStartMaxWait,
     int? appOpenMinSessions,
     int? appOpenDailyCap,
     bool clearAppOpenDailyCap = false,
-    int? appOpenHourlyCap,
-    bool clearAppOpenHourlyCap = false,
+    int? appOpenWindowCap,
+    bool clearAppOpenWindowCap = false,
+    Duration? appOpenWindow,
     int? interstitialDailyCap,
     bool clearInterstitialDailyCap = false,
-    int? interstitialHourlyCap,
-    bool clearInterstitialHourlyCap = false,
+    int? interstitialWindowCap,
+    bool clearInterstitialWindowCap = false,
+    Duration? interstitialWindow,
     bool? collapsibleBannerOncePerSession,
     List<String>? testDeviceIds,
     bool? allowTestDevicesInRelease,
@@ -343,8 +363,8 @@ class EasyAdsConfig {
       bannerEnabled: bannerEnabled ?? this.bannerEnabled,
       loadTimeout: loadTimeout ?? this.loadTimeout,
       sdkInitTimeout: sdkInitTimeout ?? this.sdkInitTimeout,
-      fullScreenAdTtl: fullScreenAdTtl ?? this.fullScreenAdTtl,
-      appOpenAdTtl: appOpenAdTtl ?? this.appOpenAdTtl,
+      fullScreenTtl: fullScreenTtl ?? this.fullScreenTtl,
+      appOpenTtl: appOpenTtl ?? this.appOpenTtl,
       maxLoadRetries: maxLoadRetries ?? this.maxLoadRetries,
       retryBaseDelay: retryBaseDelay ?? this.retryBaseDelay,
       maxRetryDelay: maxRetryDelay ?? this.maxRetryDelay,
@@ -352,20 +372,23 @@ class EasyAdsConfig {
       interstitialCooldown: interstitialCooldown ?? this.interstitialCooldown,
       minGapAfterFullScreenAd:
           minGapAfterFullScreenAd ?? this.minGapAfterFullScreenAd,
-      appOpenSplashMaxWait: appOpenSplashMaxWait ?? this.appOpenSplashMaxWait,
+      appOpenColdStartMaxWait:
+          appOpenColdStartMaxWait ?? this.appOpenColdStartMaxWait,
       appOpenMinSessions: appOpenMinSessions ?? this.appOpenMinSessions,
       appOpenDailyCap: clearAppOpenDailyCap
           ? null
           : (appOpenDailyCap ?? this.appOpenDailyCap),
-      appOpenHourlyCap: clearAppOpenHourlyCap
+      appOpenWindowCap: clearAppOpenWindowCap
           ? null
-          : (appOpenHourlyCap ?? this.appOpenHourlyCap),
+          : (appOpenWindowCap ?? this.appOpenWindowCap),
+      appOpenWindow: appOpenWindow ?? this.appOpenWindow,
       interstitialDailyCap: clearInterstitialDailyCap
           ? null
           : (interstitialDailyCap ?? this.interstitialDailyCap),
-      interstitialHourlyCap: clearInterstitialHourlyCap
+      interstitialWindowCap: clearInterstitialWindowCap
           ? null
-          : (interstitialHourlyCap ?? this.interstitialHourlyCap),
+          : (interstitialWindowCap ?? this.interstitialWindowCap),
+      interstitialWindow: interstitialWindow ?? this.interstitialWindow,
       collapsibleBannerOncePerSession:
           collapsibleBannerOncePerSession ??
           this.collapsibleBannerOncePerSession,

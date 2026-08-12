@@ -25,7 +25,7 @@ class RewardedInterstitialAdManager
   String get adUnitId => runtime.config.adUnitIds.rewardedInterstitial;
 
   @override
-  Duration get ttl => runtime.config.fullScreenAdTtl;
+  Duration get ttl => runtime.config.fullScreenTtl;
 
   /// Shows the ad and returns the reward, or null when nothing was earned.
   ///

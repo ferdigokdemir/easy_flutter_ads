@@ -48,7 +48,7 @@ class _CountingAppOpenManager extends FullScreenAdManager<AppOpenAd> {
   String get adUnitId => 'test-unit';
 
   @override
-  Duration get ttl => runtime.config.appOpenAdTtl;
+  Duration get ttl => runtime.config.appOpenTtl;
 
   @override
   Future<AppOpenAd?> performLoad(String adUnitId, AdRequest request) async {
@@ -126,9 +126,9 @@ void main() {
       final runtime = AdRuntime(
         config: const EasyAdsConfig(
           adUnitIds: EasyAdUnitIds.test(),
-          interstitialHourlyCap: 1,
+          interstitialWindowCap: 1,
           // The window reopens in 60 minutes; an ad loaded now dies at 50.
-          fullScreenAdTtl: Duration(minutes: 50),
+          fullScreenTtl: Duration(minutes: 50),
           maxLoadRetries: 0,
         ),
         clock: clock,
@@ -145,8 +145,8 @@ void main() {
       final runtime = AdRuntime(
         config: const EasyAdsConfig(
           adUnitIds: EasyAdUnitIds.test(),
-          interstitialHourlyCap: 1,
-          fullScreenAdTtl: Duration(minutes: 50),
+          interstitialWindowCap: 1,
+          fullScreenTtl: Duration(minutes: 50),
           maxLoadRetries: 0,
         ),
         clock: clock,
@@ -166,7 +166,7 @@ void main() {
       final runtime = AdRuntime(
         config: const EasyAdsConfig(
           adUnitIds: EasyAdUnitIds.test(),
-          appOpenHourlyCap: 1,
+          appOpenWindowCap: 1,
           maxLoadRetries: 0,
         ),
         clock: clock,

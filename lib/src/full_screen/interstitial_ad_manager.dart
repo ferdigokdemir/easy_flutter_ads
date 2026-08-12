@@ -22,7 +22,7 @@ class InterstitialAdManager extends FullScreenAdManager<InterstitialAd> {
   String get adUnitId => runtime.config.adUnitIds.interstitial;
 
   @override
-  Duration get ttl => runtime.config.fullScreenAdTtl;
+  Duration get ttl => runtime.config.fullScreenTtl;
 
   @override
   Future<InterstitialAd?> performLoad(String adUnitId, AdRequest request) {

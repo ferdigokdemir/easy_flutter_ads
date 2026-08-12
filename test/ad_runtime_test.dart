@@ -233,7 +233,7 @@ void main() {
           adUnitIds: EasyAdUnitIds.test(),
           appOpenCooldown: Duration.zero,
           appOpenDailyCap: 2,
-          appOpenHourlyCap: null,
+          appOpenWindowCap: null,
         ),
       );
 
@@ -256,7 +256,7 @@ void main() {
       final runtime = buildRuntime(
         const EasyAdsConfig(
           adUnitIds: EasyAdUnitIds.test(),
-          appOpenHourlyCap: null,
+          appOpenWindowCap: null,
         ),
       );
 
@@ -277,7 +277,7 @@ void main() {
       final runtime = buildRuntime(
         const EasyAdsConfig(
           adUnitIds: EasyAdUnitIds.test(),
-          interstitialHourlyCap: null,
+          interstitialWindowCap: null,
         ),
       );
 
@@ -295,7 +295,61 @@ void main() {
     });
   });
 
-  group('hourly cap', () {
+  group('window cap', () {
+    test('the window length is configurable, not fixed at an hour', () async {
+      // "At most 2 in any 4 hours" — the policy that needed a cooldown hack
+      // while the window was hardcoded to 60 minutes.
+      final runtime = buildRuntime(
+        const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          appOpenWindowCap: 2,
+          appOpenWindow: Duration(hours: 4),
+          appOpenDailyCap: null,
+        ),
+      );
+
+      await runtime.noteShown(EasyAdFormat.appOpen); // t = 0
+      await runtime.noteShown(EasyAdFormat.appOpen); // t = 0
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.appOpen),
+        EasyAdSkipReason.windowCapReached,
+      );
+
+      // t = 3h59: an hour-long window would have reopened three hours ago.
+      now = now.add(const Duration(hours: 3, minutes: 59));
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.appOpen),
+        EasyAdSkipReason.windowCapReached,
+      );
+
+      now = now.add(const Duration(minutes: 2));
+      expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
+    });
+
+    test('each format carries its own window length', () async {
+      final runtime = buildRuntime(
+        const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          appOpenWindowCap: 1,
+          appOpenWindow: Duration(hours: 4),
+          interstitialWindowCap: 1,
+          interstitialWindow: Duration(minutes: 30),
+          interstitialCooldown: Duration.zero,
+        ),
+      );
+
+      await runtime.noteShown(EasyAdFormat.appOpen);
+      await runtime.noteShown(EasyAdFormat.interstitial);
+
+      // t = 31: the interstitial's half hour is up, App Open's four are not.
+      now = now.add(const Duration(minutes: 31));
+      expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.appOpen),
+        EasyAdSkipReason.windowCapReached,
+      );
+    });
+
     test('blocks the third interstitial of the hour', () async {
       final runtime = buildRuntime();
 
@@ -307,7 +361,7 @@ void main() {
       now = now.add(const Duration(seconds: 181));
       expect(
         await runtime.evaluateGates(EasyAdFormat.interstitial),
-        EasyAdSkipReason.hourlyCapReached,
+        EasyAdSkipReason.windowCapReached,
       );
     });
 
@@ -322,7 +376,7 @@ void main() {
       now = now.add(const Duration(minutes: 29));
       expect(
         await runtime.evaluateGates(EasyAdFormat.interstitial),
-        EasyAdSkipReason.hourlyCapReached,
+        EasyAdSkipReason.windowCapReached,
       );
 
       // t = 61: it has aged out, freeing one slot. A fixed "since the top of
@@ -347,7 +401,7 @@ void main() {
       await second.startSession();
       expect(
         await second.evaluateGates(EasyAdFormat.interstitial),
-        EasyAdSkipReason.hourlyCapReached,
+        EasyAdSkipReason.windowCapReached,
       );
     });
 
@@ -363,7 +417,7 @@ void main() {
       // must not spend the whole day's allowance in ten minutes.
       expect(
         await runtime.evaluateGates(EasyAdFormat.appOpen),
-        EasyAdSkipReason.hourlyCapReached,
+        EasyAdSkipReason.windowCapReached,
       );
 
       now = now.add(const Duration(minutes: 61));
@@ -377,7 +431,7 @@ void main() {
       await runtime.noteShown(EasyAdFormat.appOpen);
       expect(
         await runtime.evaluateGates(EasyAdFormat.appOpen),
-        EasyAdSkipReason.hourlyCapReached,
+        EasyAdSkipReason.windowCapReached,
       );
 
       // A spent App Open hour says nothing about the interstitial one.
@@ -460,9 +514,9 @@ void main() {
       expect(config.copyWith().appOpenDailyCap, 5);
       expect(config.copyWith(clearAppOpenDailyCap: true).appOpenDailyCap, isNull);
 
-      expect(config.copyWith().appOpenHourlyCap, 2);
+      expect(config.copyWith().appOpenWindowCap, 2);
       expect(
-        config.copyWith(clearAppOpenHourlyCap: true).appOpenHourlyCap,
+        config.copyWith(clearAppOpenWindowCap: true).appOpenWindowCap,
         isNull,
       );
     });
