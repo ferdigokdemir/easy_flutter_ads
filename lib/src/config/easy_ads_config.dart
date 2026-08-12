@@ -29,8 +29,8 @@ class EasyAdsConfig {
     this.retryBaseDelay = const Duration(seconds: 2),
     this.maxRetryDelay = const Duration(seconds: 32),
     this.appOpenCooldown = Duration.zero,
-    this.interstitialCooldown = Duration.zero,
-    this.minGapAfterFullScreenAd = const Duration(seconds: 30),
+    this.interstitialCooldown = const Duration(seconds: 180),
+    this.minGapAfterFullScreenAd = const Duration(seconds: 120),
     this.appOpenSplashMaxWait = const Duration(seconds: 5),
     this.appOpenMinSessions = 3,
     this.appOpenDailyCap,
@@ -125,9 +125,19 @@ class EasyAdsConfig {
   /// the process.
   final Duration appOpenCooldown;
 
-  /// Minimum time between two interstitials. Defaults to zero: interstitials
-  /// are usually gated by your own app flow. Persisted across restarts like
-  /// [appOpenCooldown].
+  /// Minimum time between two interstitials.
+  ///
+  /// Defaults to three minutes. App flow alone is not a frequency policy: two
+  /// screens that each open an interstitial put two full screen ads seconds
+  /// apart the moment a user taps through them quickly, which is the pattern
+  /// AdMob's placement guidance warns about and the one that drives uninstalls.
+  ///
+  /// Prefer this over an AdMob dashboard frequency cap: a capped request comes
+  /// back as a no-fill — the request is still sent, and the wasted round trip
+  /// drags the ad unit's match rate down. This gate never sends it. Set
+  /// [Duration.zero] if your app genuinely gates interstitials elsewhere.
+  ///
+  /// Persisted across restarts like [appOpenCooldown].
   final Duration interstitialCooldown;
 
   /// How long after any other full screen ad closes the App Open ad stays
@@ -138,6 +148,12 @@ class EasyAdsConfig {
   /// return, the SDK reports a foreground transition and a naive
   /// implementation shows an App Open ad right on top of the ad the user just
   /// came back from — which AdMob's placement policy prohibits.
+  ///
+  /// Defaults to two minutes. The gap has to outlast the detour, not the ad:
+  /// a user who taps through to the Play Store and browses for a minute is
+  /// exactly the case the rule exists for, and a 30 second gap expired long
+  /// before they came back. The cost is limited to users who just tapped an
+  /// ad, so it buys the compliance margin for almost no lost impressions.
   final Duration minGapAfterFullScreenAd;
 
   /// How long the splash screen may wait for the cold start App Open ad.

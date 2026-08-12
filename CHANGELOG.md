@@ -1,3 +1,20 @@
+## 0.1.6
+
+- `interstitialCooldown` now defaults to 180 seconds instead of zero. App flow
+  is not a frequency policy: two screens that each open an interstitial put two
+  full screen ads seconds apart as soon as a user taps through them quickly.
+  Enforcing the gap here rather than through an AdMob dashboard frequency cap
+  also keeps the capped request from being sent at all — a dashboard cap answers
+  with a no-fill, and those wasted round trips drag the ad unit's match rate
+  down. Pass `Duration.zero` to restore the old behaviour.
+- `minGapAfterFullScreenAd` now defaults to 120 seconds instead of 30. The gap
+  has to outlast the *detour*, not the ad: a user who taps an interstitial,
+  lands in the Play Store and browses for a minute comes back to an expired
+  30 second gap and gets an App Open ad on top of the ad they just left —
+  precisely the adjacency AdMob's placement policy prohibits. Only users who
+  just tapped an ad are affected, so the lost impressions are marginal. Pass an
+  explicit `Duration` to restore the old value.
+
 ## 0.1.5
 
 - `EasyBannerAd` no longer stays empty when the user takes their time with the

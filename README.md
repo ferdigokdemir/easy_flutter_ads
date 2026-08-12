@@ -65,7 +65,7 @@ cannot be cancelled, so the ad still appears when it eventually loads — over y
 
 When a user taps an interstitial or rewarded ad, the app is backgrounded (Play Store or browser
 opens). On return, the SDK reports a foreground transition — and a naive resume handler shows an App
-Open ad on top of the ad the user just came back from. `minGapAfterFullScreenAd` (30s default)
+Open ad on top of the ad the user just came back from. `minGapAfterFullScreenAd` (120s default)
 suppresses exactly that, and `startWatchingAppState()` only ever shows an already-cached ad, so an ad
 can never surface seconds into a session.
 
@@ -88,7 +88,9 @@ There is **no numeric frequency rule** for App Open ads in AdMob's policies — 
 Google's docs is the ad object's expiry, and the other "4 hours" on the policy page describes which
 apps the format suits ("apps with frequent opens see the best performance"). Frequency is therefore a
 UX/revenue decision: `appOpenCooldown` defaults to zero (no gate) — set it yourself if you want one.
-The last impression is persisted, so killing and relaunching the app does not hand the user a fresh
+Interstitials are different: `interstitialCooldown` defaults to 180 seconds, because two screens that
+each open one put two full screen ads seconds apart the moment a user taps through them quickly. Both
+last impressions are persisted, so killing and relaunching the app does not hand the user a fresh
 cooldown.
 
 ## Configuration

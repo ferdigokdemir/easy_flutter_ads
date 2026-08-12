@@ -72,7 +72,7 @@ void main() {
     test('allowed once the gap has elapsed', () async {
       final runtime = buildRuntime()
         ..lastOtherFullScreenAdClosedAt = now.subtract(
-          const Duration(seconds: 31),
+          const Duration(seconds: 121),
         );
 
       expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
@@ -142,6 +142,32 @@ void main() {
 
       now = now.add(const Duration(seconds: 2));
       expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
+    });
+
+    test('interstitials are gated by the three minute default', () async {
+      final runtime = buildRuntime();
+      await runtime.noteShown(EasyAdFormat.interstitial);
+
+      now = now.add(const Duration(seconds: 179));
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.interstitial),
+        EasyAdSkipReason.cooldown,
+      );
+
+      now = now.add(const Duration(seconds: 2));
+      expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
+    });
+
+    test('a zero cooldown opts out of the gate', () async {
+      final runtime = buildRuntime(
+        const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          interstitialCooldown: Duration.zero,
+        ),
+      );
+      await runtime.noteShown(EasyAdFormat.interstitial);
+
+      expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
     });
 
     test('survives a restart through the store', () async {
