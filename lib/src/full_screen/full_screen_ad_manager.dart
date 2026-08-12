@@ -73,9 +73,15 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
   /// Fire and forget — there is no reason to await it. Repeat calls while a
   /// retry loop is already running are ignored, so it is safe to call from
   /// every foreground transition.
+  ///
+  /// A spent daily cap stops the request outright. A cooldown does not: the
+  /// point of preloading is to have the ad in hand by the time the window
+  /// reopens, and declining to load through a cooldown would empty the cache
+  /// at exactly the moment the next impression is due.
   Future<void> preload() async {
     if (!runtime.config.enabled || !runtime.isFormatEnabled(format)) return;
     if (isReady || _retrying || _loading != null) return;
+    if (await runtime.isDailyCapReached(format)) return;
     if (!await runtime.ensureInitialized()) return;
 
     _retrying = true;

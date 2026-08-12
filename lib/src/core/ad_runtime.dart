@@ -286,13 +286,25 @@ class AdRuntime {
         return EasyAdSkipReason.cooldown;
       }
 
-      final cap = dailyCapFor(format);
-      if (cap != null && await _dailyCount(format) >= cap) {
+      if (await isDailyCapReached(format)) {
         return EasyAdSkipReason.dailyCapReached;
       }
     }
 
     return null;
+  }
+
+  /// True when [format] has used up its per-day allowance.
+  ///
+  /// Exposed separately from [evaluateGates] because a preload needs a
+  /// different answer than a show. A cooldown is temporary and worth loading
+  /// through — the ad should be cached by the time the window reopens. A spent
+  /// daily cap is not: nothing loaded now can be shown before the date rolls
+  /// over, so the request and the no-fill retries behind it are pure waste.
+  Future<bool> isDailyCapReached(EasyAdFormat format) async {
+    final cap = dailyCapFor(format);
+    if (cap == null) return false;
+    return await _dailyCount(format) >= cap;
   }
 
   /// Records a successful impression: resets the cooldown clock and advances

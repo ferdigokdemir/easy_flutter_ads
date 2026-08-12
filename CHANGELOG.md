@@ -1,3 +1,17 @@
+## 0.1.8
+
+- `preload()` no longer sends a request once the format's daily cap is spent.
+  The cap used to be a show-time gate only, so a capped format kept loading all
+  day — every background transition fired a preload, and each no-fill dragged
+  three retries behind it. Nothing loaded after the cap can be shown before the
+  date rolls over, so the request was pure waste.
+- A running **cooldown** still loads through, deliberately: the point of
+  preloading is to have the ad in hand when the window reopens, and skipping
+  the load would empty the cache at exactly the moment the next impression is
+  due.
+- New `AdRuntime.isDailyCapReached(format)` backs both the show gate and the
+  preload gate, so the rule lives in one place.
+
 ## 0.1.7
 
 - `appOpenDailyCap` now defaults to 3 and `interstitialDailyCap` to 6, instead
