@@ -91,6 +91,46 @@ void main() {
       expect(manager.loads, 1);
     });
 
+    test('a spent hour stops a request that would expire waiting', () async {
+      final runtime = AdRuntime(
+        config: const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          interstitialHourlyCap: 1,
+          // The window reopens in 60 minutes; an ad loaded now dies at 50.
+          fullScreenAdTtl: Duration(minutes: 50),
+          maxLoadRetries: 0,
+        ),
+        clock: clock,
+      )..ensureInitialized = () async => true;
+      await runtime.noteShown(EasyAdFormat.interstitial);
+
+      final manager = _CountingManager(runtime);
+      await manager.preload();
+
+      expect(manager.loads, 0);
+    });
+
+    test('a spent hour still loads once the ad would survive the wait', () async {
+      final runtime = AdRuntime(
+        config: const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          interstitialHourlyCap: 1,
+          fullScreenAdTtl: Duration(minutes: 50),
+          maxLoadRetries: 0,
+        ),
+        clock: clock,
+      )..ensureInitialized = () async => true;
+      await runtime.noteShown(EasyAdFormat.interstitial);
+
+      // 15 minutes left in the window, well inside the 50 minute TTL: loading
+      // now puts the ad on screen the moment the cap lifts.
+      now = now.add(const Duration(minutes: 45));
+      final manager = _CountingManager(runtime);
+      await manager.preload();
+
+      expect(manager.loads, 1);
+    });
+
     test('the cap clears when the date rolls over', () async {
       final runtime = buildRuntime();
       await runtime.noteShown(EasyAdFormat.interstitial);

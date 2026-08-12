@@ -27,6 +27,11 @@ class AdRuntime {
   static const _capCountPrefix = 'easy_ads.cap_count.';
   static const _capDayPrefix = 'easy_ads.cap_day.';
   static const _lastShownPrefix = 'easy_ads.last_shown.';
+  static const _windowSlotPrefix = 'easy_ads.window_slot.';
+  static const _windowCursorPrefix = 'easy_ads.window_cursor.';
+
+  /// The span [hourlyCapFor] counts impressions over.
+  static const hourlyWindow = Duration(hours: 1);
 
   /// The formats [evaluateGates] applies a cooldown to. Their last impression
   /// is persisted, so killing and relaunching the app cannot skip a cooldown
@@ -234,6 +239,19 @@ class AdRuntime {
     }
   }
 
+  /// The rolling one hour cap configured for [format], if any.
+  int? hourlyCapFor(EasyAdFormat format) {
+    switch (format) {
+      case EasyAdFormat.interstitial:
+        return config.interstitialHourlyCap;
+      case EasyAdFormat.appOpen:
+      case EasyAdFormat.rewarded:
+      case EasyAdFormat.rewardedInterstitial:
+      case EasyAdFormat.banner:
+        return null;
+    }
+  }
+
   /// The per-day cap configured for [format], if any.
   int? dailyCapFor(EasyAdFormat format) {
     switch (format) {
@@ -286,6 +304,10 @@ class AdRuntime {
         return EasyAdSkipReason.cooldown;
       }
 
+      if (await hourlyWindowReopensAt(format) != null) {
+        return EasyAdSkipReason.hourlyCapReached;
+      }
+
       if (await isDailyCapReached(format)) {
         return EasyAdSkipReason.dailyCapReached;
       }
@@ -307,8 +329,40 @@ class AdRuntime {
     return await _dailyCount(format) >= cap;
   }
 
-  /// Records a successful impression: resets the cooldown clock and advances
-  /// the daily counter.
+  /// When the rolling hour frees a slot for [format], or null when one is
+  /// free right now.
+  ///
+  /// Returns a time rather than a bool because a preload needs to know *how
+  /// long* the wait is: loading an ad that expires before the window reopens
+  /// wastes the request, while loading one that is still fresh by then puts it
+  /// on screen the moment the cap lifts.
+  ///
+  /// Only the last `cap` impressions are kept, in a ring buffer whose cursor
+  /// points at the oldest of them — the one that has to age out for a slot to
+  /// free up. That makes the check two reads regardless of how much the user
+  /// uses the app.
+  Future<DateTime?> hourlyWindowReopensAt(EasyAdFormat format) async {
+    final cap = hourlyCapFor(format);
+    if (cap == null || cap <= 0) return null;
+
+    final cursor = await store.readInt('$_windowCursorPrefix${format.name}');
+    final oldest = await store.readInt(
+      '$_windowSlotPrefix${format.name}.${cursor % cap}',
+    );
+    // An empty slot means fewer than `cap` impressions have happened.
+    if (oldest <= 0) return null;
+
+    final shownAt = DateTime.fromMillisecondsSinceEpoch(oldest);
+    // A timestamp in the future means the device clock moved backwards.
+    // Honouring it would freeze the format until the clock catches up.
+    if (shownAt.isAfter(now)) return null;
+
+    final reopensAt = shownAt.add(hourlyWindow);
+    return reopensAt.isAfter(now) ? reopensAt : null;
+  }
+
+  /// Records a successful impression: resets the cooldown clock, advances the
+  /// rolling window cursor and the daily counter.
   Future<void> noteShown(EasyAdFormat format) async {
     final shownAt = now;
     lastShownAt[format] = shownAt;
@@ -318,6 +372,21 @@ class AdRuntime {
         shownAt.millisecondsSinceEpoch,
       );
     }
+    final hourlyCap = hourlyCapFor(format);
+    if (hourlyCap != null && hourlyCap > 0) {
+      // Overwrite the slot the cursor points at — the oldest of the `cap`
+      // impressions kept — then move the cursor to the next oldest.
+      final cursor = await store.readInt('$_windowCursorPrefix${format.name}');
+      await store.writeInt(
+        '$_windowSlotPrefix${format.name}.${cursor % hourlyCap}',
+        shownAt.millisecondsSinceEpoch,
+      );
+      await store.writeInt(
+        '$_windowCursorPrefix${format.name}',
+        (cursor + 1) % hourlyCap,
+      );
+    }
+
     if (dailyCapFor(format) == null) return;
     final today = _todayOrdinal;
     final storedDay = await store.readInt('$_capDayPrefix${format.name}');

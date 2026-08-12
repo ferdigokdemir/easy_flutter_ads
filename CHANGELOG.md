@@ -1,3 +1,21 @@
+## 0.1.9
+
+- New `interstitialHourlyCap`, defaulting to 2. It is the middle term between
+  `interstitialCooldown` and `interstitialDailyCap`, and none of the three can
+  stand in for the others: a cooldown alone lets a heavy session run twenty ads
+  an hour, and a daily cap alone lets the whole allowance burn in the first ten
+  minutes. Raising the cooldown to imitate the cap would space ads far apart
+  even for a user who has seen none today.
+- The window slides — "in the last 60 minutes", not "since the top of the
+  hour" — so the boundary cannot be used to double up. Only the last `cap`
+  impressions are stored, in a ring buffer whose cursor points at the oldest, so
+  the check costs two reads no matter how heavily the app is used. Persisted
+  through `EasyAdsStore`, so a relaunch cannot clear a running window.
+- `preload()` decides on TTL here rather than skipping outright: it loads when
+  the ad would still be fresh at the moment the cap lifts, and skips when it
+  would expire in the cache first.
+- New `EasyAdSkipReason.hourlyCapReached`.
+
 ## 0.1.8
 
 - `preload()` no longer sends a request once the format's daily cap is spent.

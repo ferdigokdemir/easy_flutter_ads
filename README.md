@@ -32,7 +32,7 @@ final reward = await EasyAds.instance.rewarded.showForReward();
 | **Placement policy** | The App Open rules AdMob actually enforces — see below. |
 | **Revenue** | `onPaidEvent` is wired automatically for every format. Retrofitting impression-level revenue later is painful. |
 | **Kill switches** | One `enabled` flag for subscribers, one per format, all hot-swappable from Remote Config. |
-| **Frequency** | Per-format cooldowns and daily caps, enforced client side so capped requests are never sent (AdMob's dashboard cap returns a no-fill instead). A spent daily cap stops preloading too; a cooldown deliberately loads through, so the ad is cached when the window reopens. |
+| **Frequency** | Cooldowns, a rolling hourly cap for interstitials and per-format daily caps — all enforced client side, so a capped request is never sent (AdMob's dashboard cap returns a no-fill instead). Preloading follows the same rules: a spent daily cap stops it, a cooldown loads through, and a spent hour decides on TTL. |
 | **Never crashes** | Every path swallows its exceptions and reports them via `onError`. A broken ad stack degrades to "no ads". |
 
 ## App Open ads: the part most implementations get wrong

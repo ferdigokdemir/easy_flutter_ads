@@ -78,10 +78,18 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
   /// point of preloading is to have the ad in hand by the time the window
   /// reopens, and declining to load through a cooldown would empty the cache
   /// at exactly the moment the next impression is due.
+  ///
+  /// A spent rolling hour sits between the two, so the decision is made on
+  /// [ttl]: load if the ad would still be fresh when the cap lifts, skip if it
+  /// would expire in the cache first.
   Future<void> preload() async {
     if (!runtime.config.enabled || !runtime.isFormatEnabled(format)) return;
     if (isReady || _retrying || _loading != null) return;
     if (await runtime.isDailyCapReached(format)) return;
+
+    final reopensAt = await runtime.hourlyWindowReopensAt(format);
+    if (reopensAt != null && reopensAt.difference(runtime.now) > ttl) return;
+
     if (!await runtime.ensureInitialized()) return;
 
     _retrying = true;

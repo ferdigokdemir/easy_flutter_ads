@@ -264,7 +264,14 @@ void main() {
     });
 
     test('interstitials default to six a day', () async {
-      final runtime = buildRuntime();
+      // The hourly cap is cleared so the daily one is what bites; the two are
+      // exercised separately.
+      final runtime = buildRuntime(
+        const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          interstitialHourlyCap: null,
+        ),
+      );
 
       for (var i = 0; i < 6; i++) {
         expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
@@ -275,6 +282,84 @@ void main() {
 
       expect(
         await runtime.evaluateGates(EasyAdFormat.interstitial),
+        EasyAdSkipReason.dailyCapReached,
+      );
+    });
+  });
+
+  group('hourly cap', () {
+    test('blocks the third interstitial of the hour', () async {
+      final runtime = buildRuntime();
+
+      await runtime.noteShown(EasyAdFormat.interstitial);
+      now = now.add(const Duration(seconds: 181));
+      expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
+
+      await runtime.noteShown(EasyAdFormat.interstitial);
+      now = now.add(const Duration(seconds: 181));
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.interstitial),
+        EasyAdSkipReason.hourlyCapReached,
+      );
+    });
+
+    test('the window slides instead of resetting on the hour', () async {
+      final runtime = buildRuntime();
+
+      await runtime.noteShown(EasyAdFormat.interstitial); // t = 0
+      now = now.add(const Duration(minutes: 30));
+      await runtime.noteShown(EasyAdFormat.interstitial); // t = 30
+
+      // t = 59: the first impression is still inside the hour.
+      now = now.add(const Duration(minutes: 29));
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.interstitial),
+        EasyAdSkipReason.hourlyCapReached,
+      );
+
+      // t = 61: it has aged out, freeing one slot. A fixed "since the top of
+      // the hour" window would have freed both.
+      now = now.add(const Duration(minutes: 2));
+      expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
+    });
+
+    test('survives a restart through the store', () async {
+      const config = EasyAdsConfig(adUnitIds: EasyAdUnitIds.test());
+      final store = MemoryEasyAdsStore();
+
+      final first = AdRuntime(config: config, store: store, clock: clock);
+      await first.startSession();
+      await first.noteShown(EasyAdFormat.interstitial);
+      now = now.add(const Duration(minutes: 5));
+      await first.noteShown(EasyAdFormat.interstitial);
+
+      // The user kills the app and relaunches it ten minutes later.
+      now = now.add(const Duration(minutes: 10));
+      final second = AdRuntime(config: config, store: store, clock: clock);
+      await second.startSession();
+      expect(
+        await second.evaluateGates(EasyAdFormat.interstitial),
+        EasyAdSkipReason.hourlyCapReached,
+      );
+    });
+
+    test('other formats are untouched by it', () async {
+      final runtime = buildRuntime(
+        const EasyAdsConfig(
+          adUnitIds: EasyAdUnitIds.test(),
+          appOpenCooldown: Duration.zero,
+        ),
+      );
+
+      for (var i = 0; i < 3; i++) {
+        expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
+        await runtime.noteShown(EasyAdFormat.appOpen);
+      }
+
+      // Three App Open ads in one hour: stopped by the daily cap, never by an
+      // hourly one — the cap is interstitial-only.
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.appOpen),
         EasyAdSkipReason.dailyCapReached,
       );
     });

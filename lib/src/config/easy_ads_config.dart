@@ -35,6 +35,7 @@ class EasyAdsConfig {
     this.appOpenMinSessions = 1,
     this.appOpenDailyCap = 3,
     this.interstitialDailyCap = 6,
+    this.interstitialHourlyCap = 2,
     this.collapsibleBannerOncePerSession = true,
     this.testDeviceIds = const [],
     this.allowTestDevicesInRelease = false,
@@ -193,6 +194,23 @@ class EasyAdsConfig {
   /// Requires a persistent [EasyAdsStore].
   final int? interstitialDailyCap;
 
+  /// Rolling one hour cap for interstitials, or null for no cap.
+  ///
+  /// Defaults to two. This is the middle term between [interstitialCooldown]
+  /// and [interstitialDailyCap], and none of the three can stand in for the
+  /// others: a cooldown alone lets a heavy session run twenty ads an hour, and
+  /// a daily cap alone lets the whole day's allowance burn in the first ten
+  /// minutes. Raising the cooldown to imitate this cap would space the ads a
+  /// user sees far apart even when they have seen none at all today.
+  ///
+  /// The window slides — it is "in the last 60 minutes", not "since the top of
+  /// the hour", so the boundary cannot be used to double up. Only the last
+  /// [interstitialHourlyCap] impressions are stored, in a small ring buffer, so
+  /// the bookkeeping does not grow with usage.
+  ///
+  /// Requires a persistent [EasyAdsStore].
+  final int? interstitialHourlyCap;
+
   /// Requests a collapsible banner at most once per app session.
   ///
   /// Collapsible banners start expanded and cover content, so repeatedly
@@ -273,6 +291,8 @@ class EasyAdsConfig {
     bool clearAppOpenDailyCap = false,
     int? interstitialDailyCap,
     bool clearInterstitialDailyCap = false,
+    int? interstitialHourlyCap,
+    bool clearInterstitialHourlyCap = false,
     bool? collapsibleBannerOncePerSession,
     List<String>? testDeviceIds,
     bool? allowTestDevicesInRelease,
@@ -316,6 +336,9 @@ class EasyAdsConfig {
       interstitialDailyCap: clearInterstitialDailyCap
           ? null
           : (interstitialDailyCap ?? this.interstitialDailyCap),
+      interstitialHourlyCap: clearInterstitialHourlyCap
+          ? null
+          : (interstitialHourlyCap ?? this.interstitialHourlyCap),
       collapsibleBannerOncePerSession:
           collapsibleBannerOncePerSession ??
           this.collapsibleBannerOncePerSession,
