@@ -10,7 +10,8 @@ import '../core/easy_ad_event.dart';
 enum EasyBannerType {
   /// Screen-width banner with a device-appropriate height, meant to be pinned
   /// to the top or bottom of the screen. The default, and what Google
-  /// recommends for anchored placements.
+  /// recommends for anchored placements. The requested height is a ceiling —
+  /// the widget ends up as tall as the creative that actually filled it.
   anchoredAdaptive,
 
   /// Taller, richer banner meant to live inside scrollable content. Its height
@@ -171,21 +172,26 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
         listener: BannerAdListener(
           onAdLoaded: (ad) async {
             final banner = ad as BannerAd;
-            // Only an inline banner needs the platform size: it is requested
-            // with height 0 and the real height is known only after loading.
-            //
-            // For anchored and fixed banners the requested size is the correct
-            // reservation. The served creative is often shorter, so adopting
-            // the platform size there would visibly shrink the banner right
-            // after it appears — which is why Google's anchored sample renders
-            // `ad.size` and only the inline sample reads the platform size.
-            AdSize? resolvedSize = banner.size;
-            if (widget.type == EasyBannerType.inlineAdaptive) {
-              resolvedSize = await banner.getPlatformAdSize();
-            }
+            // Every type adopts the size the platform actually filled. An
+            // adaptive request is a *ceiling* — an anchored slot may be asked
+            // for a fraction of the screen height and then filled with a 320x50
+            // creative, and drawing the requested box around it leaves a dead
+            // strip under the ad. Google's anchored sample gets away with
+            // rendering `ad.size` because it reserves the slot up front; here
+            // the widget occupies nothing until this callback runs, so the
+            // first frame the user sees is already the correct height and
+            // there is no shrink to witness.
+            AdSize? resolvedSize = await banner.getPlatformAdSize();
             if (!mounted) {
               await banner.dispose();
               return;
+            }
+            // An inline banner is requested with height 0, so without the
+            // platform size there is no height to fall back to. Anchored and
+            // fixed requests carry a usable reservation.
+            if (resolvedSize == null &&
+                widget.type != EasyBannerType.inlineAdaptive) {
+              resolvedSize = banner.size;
             }
             if (resolvedSize == null) {
               // No trustworthy height: showing a wrongly sized container is

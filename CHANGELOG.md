@@ -1,3 +1,22 @@
+## 0.2.1
+
+A banner is now as tall as the ad inside it.
+
+An adaptive request states a *ceiling*, not a size. An anchored slot asks for a
+fraction of the screen height and is regularly filled with a 320x50 creative;
+the widget drew the requested box anyway, so a dead strip sat under the ad —
+visible under a bottom-anchored banner, where it pushes the navigation bar down
+for nothing.
+
+- `onAdLoaded` now reads `getPlatformAdSize()` for every banner type, not just
+  `inlineAdaptive`, and lays out the size that actually filled.
+- Anchored and fixed banners fall back to the requested size if the platform
+  reports none; an inline banner still fails, since it is requested with
+  height 0 and has no reservation to fall back to.
+- No layout shift comes with this: the widget occupies nothing until the ad
+  loads, so the first frame drawn is already the final height. `onLoaded`
+  reports that same height.
+
 ## 0.2.0
 
 Breaking. The rolling cap window was hardcoded to one hour, so a policy like
