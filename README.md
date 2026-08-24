@@ -68,6 +68,12 @@ Open ad on top of the ad the user just came back from. `minGapAfterFullScreenAd`
 suppresses exactly that, and `startWatchingAppState()` only ever shows an already-cached ad, so an ad
 can never surface seconds into a session.
 
+The gate runs the other way too. The App Open ad greets the user at the door, so the flow they came
+for finishes right after it closes — and its interstitial would land on the ad the user just
+dismissed. `minGapAfterAppOpenAd` (30s default) holds that one back. Two formats, two gaps: the
+first has to outlast a detour to the Play Store, the second only has to keep two ads from touching.
+Rewarded ads are exempt in both directions — the app already promised the reward.
+
 **3. No ad on a return your own app caused.**
 
 An image picker, the camera, a sign-in flow, the Play Store, a share sheet — every one of them

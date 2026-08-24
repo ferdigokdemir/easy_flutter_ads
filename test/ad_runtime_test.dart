@@ -59,9 +59,8 @@ void main() {
       // The trap this exists for: the user taps a rewarded ad, lands in the
       // Play Store, comes back, and the resume handler fires.
       final runtime = buildRuntime()
-        ..lastOtherFullScreenAdClosedAt = now.subtract(
-          const Duration(seconds: 5),
-        );
+        ..lastFullScreenAdClosedAt = now.subtract(const Duration(seconds: 5))
+        ..lastClosedFullScreenFormat = EasyAdFormat.rewarded;
 
       expect(
         await runtime.evaluateGates(EasyAdFormat.appOpen),
@@ -71,18 +70,49 @@ void main() {
 
     test('allowed once the gap has elapsed', () async {
       final runtime = buildRuntime()
-        ..lastOtherFullScreenAdClosedAt = now.subtract(
-          const Duration(seconds: 121),
-        );
+        ..lastFullScreenAdClosedAt = now.subtract(const Duration(seconds: 121))
+        ..lastClosedFullScreenFormat = EasyAdFormat.rewarded;
 
       expect(await runtime.evaluateGates(EasyAdFormat.appOpen), isNull);
     });
 
-    test('an interstitial is not blocked by the app open gap rule', () async {
+    test('an interstitial is suppressed right after an app open ad', () async {
+      // The share-intent case: the App Open ad greets the user, the flow they
+      // came for finishes seconds later and wants to show its interstitial.
       final runtime = buildRuntime()
-        ..lastOtherFullScreenAdClosedAt = now.subtract(
-          const Duration(seconds: 1),
-        );
+        ..lastFullScreenAdClosedAt = now.subtract(const Duration(seconds: 5))
+        ..lastClosedFullScreenFormat = EasyAdFormat.appOpen;
+
+      expect(
+        await runtime.evaluateGates(EasyAdFormat.interstitial),
+        EasyAdSkipReason.adjacentToAnotherAd,
+      );
+    });
+
+    test('an interstitial is allowed once the app open gap elapsed', () async {
+      final runtime = buildRuntime()
+        ..lastFullScreenAdClosedAt = now.subtract(const Duration(seconds: 31))
+        ..lastClosedFullScreenFormat = EasyAdFormat.appOpen;
+
+      expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
+    });
+
+    test('a rewarded ad is never blocked by the adjacency gate', () async {
+      // User initiated: the app already promised the reward.
+      final runtime = buildRuntime()
+        ..lastFullScreenAdClosedAt = now.subtract(const Duration(seconds: 1))
+        ..lastClosedFullScreenFormat = EasyAdFormat.appOpen;
+
+      expect(await runtime.evaluateGates(EasyAdFormat.rewarded), isNull);
+    });
+
+    test('same-format adjacency is left to that cooldown', () async {
+      // An interstitial that closed 5s ago must not borrow the App Open gap:
+      // `interstitialCooldown` is the authority for its own format, and it
+      // runs off `lastShownAt`, which no impression has filled here.
+      final runtime = buildRuntime()
+        ..lastFullScreenAdClosedAt = now.subtract(const Duration(seconds: 5))
+        ..lastClosedFullScreenFormat = EasyAdFormat.interstitial;
 
       expect(await runtime.evaluateGates(EasyAdFormat.interstitial), isNull);
     });

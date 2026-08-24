@@ -90,8 +90,16 @@ class AdRuntime {
   /// screen.
   bool isShowingFullScreenAd = false;
 
-  /// The moment the last interstitial/rewarded ad closed.
-  DateTime? lastOtherFullScreenAdClosedAt;
+  /// The moment the last full screen ad closed, and which format it was.
+  ///
+  /// Read by the adjacency gate in both directions: an App Open ad keeps its
+  /// distance from an interstitial that just closed, and every other format
+  /// keeps its distance from an App Open ad that just closed.
+  DateTime? lastFullScreenAdClosedAt;
+
+  /// The format of the ad [lastFullScreenAdClosedAt] refers to. Picks which
+  /// gap applies, and keeps a format from gating itself.
+  EasyAdFormat? lastClosedFullScreenFormat;
 
   /// When the App Open suppression window opened by
   /// [AppOpenAdManager.suppressResume] runs out. A timestamp in the past means
@@ -300,10 +308,18 @@ class AdRuntime {
         if (suppressedUntil != null && now.isBefore(suppressedUntil)) {
           return EasyAdSkipReason.resumeSuppressed;
         }
+      }
 
-        final closedAt = lastOtherFullScreenAdClosedAt;
-        if (closedAt != null &&
-            now.difference(closedAt) < config.minGapAfterFullScreenAd) {
+      // Adjacency, both ways. Same-format adjacency is left to that format's
+      // cooldown, which is configured per format and would otherwise be
+      // overruled here.
+      final closedAt = lastFullScreenAdClosedAt;
+      final closedFormat = lastClosedFullScreenFormat;
+      if (closedAt != null && closedFormat != null && closedFormat != format) {
+        final gap = closedFormat == EasyAdFormat.appOpen
+            ? config.minGapAfterAppOpenAd
+            : config.minGapAfterFullScreenAd;
+        if (now.difference(closedAt) < gap) {
           return EasyAdSkipReason.adjacentToAnotherAd;
         }
       }

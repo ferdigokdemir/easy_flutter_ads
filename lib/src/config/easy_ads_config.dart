@@ -31,6 +31,7 @@ class EasyAdsConfig {
     this.appOpenCooldown = Duration.zero,
     this.interstitialCooldown = const Duration(seconds: 180),
     this.minGapAfterFullScreenAd = const Duration(seconds: 120),
+    this.minGapAfterAppOpenAd = const Duration(seconds: 30),
     this.appOpenColdStartMaxWait = const Duration(seconds: 5),
     this.appOpenMinSessions = 1,
     this.appOpenDailyCap = 3,
@@ -164,6 +165,22 @@ class EasyAdsConfig {
   /// before they came back. The cost is limited to users who just tapped an
   /// ad, so it buys the compliance margin for almost no lost impressions.
   final Duration minGapAfterFullScreenAd;
+
+  /// How long after an App Open ad closes every other full screen ad stays
+  /// suppressed.
+  ///
+  /// The mirror image of [minGapAfterFullScreenAd], and just as real: the
+  /// App Open ad greets the user at the door, so whatever they came to do
+  /// starts right after it closes. A flow that ends in an interstitial —
+  /// a download, a save, a finished level — then puts a second full screen ad
+  /// on screen seconds after the first one, which reads as an ad wall.
+  ///
+  /// Shorter than [minGapAfterFullScreenAd] by default, because the two guard
+  /// different things: that one has to outlast a detour to the Play Store,
+  /// this one only has to keep two ads from touching. Thirty seconds clears
+  /// the back-to-back case while leaving the impression intact for a user who
+  /// stayed a while — raise it if your entry flow finishes faster than that.
+  final Duration minGapAfterAppOpenAd;
 
   /// How long [AppOpenAdManager.showOnColdStart] may wait for its ad.
   ///
@@ -325,6 +342,7 @@ class EasyAdsConfig {
     Duration? appOpenCooldown,
     Duration? interstitialCooldown,
     Duration? minGapAfterFullScreenAd,
+    Duration? minGapAfterAppOpenAd,
     Duration? appOpenColdStartMaxWait,
     int? appOpenMinSessions,
     int? appOpenDailyCap,
@@ -372,6 +390,7 @@ class EasyAdsConfig {
       interstitialCooldown: interstitialCooldown ?? this.interstitialCooldown,
       minGapAfterFullScreenAd:
           minGapAfterFullScreenAd ?? this.minGapAfterFullScreenAd,
+      minGapAfterAppOpenAd: minGapAfterAppOpenAd ?? this.minGapAfterAppOpenAd,
       appOpenColdStartMaxWait:
           appOpenColdStartMaxWait ?? this.appOpenColdStartMaxWait,
       appOpenMinSessions: appOpenMinSessions ?? this.appOpenMinSessions,

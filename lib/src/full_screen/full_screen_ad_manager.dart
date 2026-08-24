@@ -297,14 +297,13 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
   }
 
   /// Runs on dismiss, show-failure and show-exception alike: clears the
-  /// "an ad is on screen" state, records when this ad closed so the App Open
-  /// manager can keep its distance, drops the consumed ad and starts loading
-  /// the next one.
+  /// "an ad is on screen" state, records when this ad closed so the next full
+  /// screen ad of another format can keep its distance, drops the consumed ad
+  /// and starts loading the next one.
   void _finishShow(String unitId) {
     runtime.isShowingFullScreenAd = false;
-    if (format != EasyAdFormat.appOpen) {
-      runtime.lastOtherFullScreenAdClosedAt = runtime.now;
-    }
+    runtime.lastFullScreenAdClosedAt = runtime.now;
+    runtime.lastClosedFullScreenFormat = format;
     _disposeAd();
     unawaited(preload());
   }

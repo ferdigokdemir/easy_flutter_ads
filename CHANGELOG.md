@@ -1,3 +1,25 @@
+## 0.2.2
+
+Two full screen ads no longer land back to back when the first one is the App
+Open ad.
+
+The adjacency gate only ran one way: an interstitial that just closed held the
+App Open ad back, but nothing held an interstitial back after an App Open ad.
+An app entered through a share intent showed the App Open ad at the door and
+then, seconds later, the interstitial that ends its main flow — two full screen
+ads in a row, which is the placement the rule exists to prevent.
+
+- `minGapAfterAppOpenAd` (30s default) suppresses every other full screen
+  format for a while after an App Open ad closes. It is a separate setting from
+  `minGapAfterFullScreenAd` (120s) because the two guard different things: that
+  one has to outlast a user's detour to the Play Store, this one only has to
+  keep two ads from touching.
+- Same-format adjacency is still that format's own cooldown's job, and rewarded
+  ads remain exempt from the gate in both directions.
+- `AdRuntime.lastOtherFullScreenAdClosedAt` is now
+  `lastFullScreenAdClosedAt` + `lastClosedFullScreenFormat`, and App Open
+  closes are recorded too. Internal state; no host app touches it.
+
 ## 0.2.1
 
 A banner is now as tall as the ad inside it.
