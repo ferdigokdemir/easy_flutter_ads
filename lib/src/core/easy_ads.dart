@@ -123,6 +123,10 @@ class EasyAds {
   /// reported through [EasyAdsConfig.onError], so a broken ad stack degrades
   /// to "no ads" instead of "no app".
   ///
+  /// With [EasyAdsConfig.enabled] false nothing starts at all — no UMP consent
+  /// form, no SDK. Call it unconditionally for subscribers too; [updateConfig]
+  /// starts the SDK if their entitlement later lapses.
+  ///
   /// Session thresholds, daily caps, hourly windows and cooldowns are persisted
   /// for you: [store] defaults to [PrefsEasyAdsStore], backed by
   /// `shared_preferences`. Pass your own [EasyAdsStore] to keep the counters
@@ -169,7 +173,15 @@ class EasyAds {
   Future<void> updateConfig(EasyAdsConfig config) async {
     final runtime = _runtime;
     runtime.config = config;
-    if (runtime.isInitialized) await _applyRequestConfiguration(runtime);
+    if (runtime.isInitialized) {
+      await _applyRequestConfiguration(runtime);
+      return;
+    }
+    // Ads were off when initialize() ran, so the SDK was never started (see
+    // _ensureInitialized). Turning them back on mid-session — a subscription
+    // that lapsed, a kill switch lifted by Remote Config — has to start it
+    // now, or nothing would load until the next cold start.
+    if (_configured && config.enabled) await _ensureInitialized();
   }
 
   /// Turns all ads on or off — call with `false` as soon as you know the user
@@ -267,6 +279,11 @@ class EasyAds {
   Future<bool> _ensureInitialized() {
     // Nothing to start until the host app has supplied ad units and callbacks.
     if (!_configured) return Future.value(false);
+    // Ads are off for this user — a subscriber, or a kill switch. Starting the
+    // SDK anyway would gather UMP consent, so someone who will never see an ad
+    // gets the consent form in the EEA. Startup waits until `enabled` flips
+    // back on; [updateConfig] runs it then.
+    if (!_runtime.config.enabled) return Future.value(false);
     final runtime = _runtime;
     if (runtime.isInitialized) return Future.value(true);
     return _initFuture ??= _startSdk(runtime);

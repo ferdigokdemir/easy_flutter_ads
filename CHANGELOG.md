@@ -1,3 +1,19 @@
+## 0.2.3
+
+Subscribers are no longer shown the UMP consent form.
+
+`enabled: false` only ever gated ad *requests*: `initialize()` still gathered
+consent and started the SDK, so a paying user in the EEA was asked to consent
+to ads they will never see. Host apps worked around it by skipping
+`initialize()` for subscribers, which then left the SDK dead when an
+entitlement lapsed mid-session.
+
+- Startup is now deferred while `enabled` is false — no consent form, no
+  `MobileAds.initialize()`. Call `initialize()` unconditionally, subscribers
+  included.
+- `updateConfig()` (and `setAdsEnabled(true)`) starts the SDK when the flag
+  flips back on, so a lapsed subscription serves ads without a cold start.
+
 ## 0.2.2
 
 Two full screen ads no longer land back to back when the first one is the App

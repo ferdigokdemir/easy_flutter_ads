@@ -59,6 +59,11 @@ class EasyAdsConfig {
 
   /// Master switch. Set to `false` for paying users — every show and preload
   /// turns into a no-op, and no requests are sent.
+  ///
+  /// While it is `false` the package starts nothing at all: no UMP consent
+  /// form and no `MobileAds.initialize()`, so a subscriber is never asked to
+  /// consent to ads they will not see. Startup runs on its own if the flag
+  /// later flips to `true` — call `EasyAds.initialize()` for subscribers too.
   final bool enabled;
 
   /// Allows the cold start (splash) App Open ad.

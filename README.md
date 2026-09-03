@@ -30,7 +30,7 @@ final reward = await EasyAds.instance.rewarded.showForReward();
 | **Initialization ordering** | Every load waits behind a memoized `initialize()`, so mediation adapters participate in the first request. |
 | **Placement policy** | The App Open rules AdMob actually enforces — see below. |
 | **Revenue** | `onPaidEvent` is wired automatically for every format. Retrofitting impression-level revenue later is painful. |
-| **Kill switches** | One `enabled` flag for subscribers, one per format, all hot-swappable from Remote Config. |
+| **Kill switches** | One `enabled` flag for subscribers, one per format, all hot-swappable from Remote Config. While `enabled` is off nothing starts — a subscriber never sees the consent form — and startup runs by itself if it flips back on. |
 | **Frequency** | Cooldowns, rolling windows of any length, and daily caps, per format — all enforced client side, so a capped request is never sent (AdMob's dashboard cap returns a no-fill instead). Preloading follows the same rules: a spent daily cap stops it, a cooldown loads through, and a spent window decides on TTL. |
 | **Never crashes** | Every path swallows its exceptions and reports them via `onError`. A broken ad stack degrades to "no ads". |
 
