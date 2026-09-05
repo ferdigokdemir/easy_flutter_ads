@@ -1,3 +1,20 @@
+## 0.2.4
+
+A banner built before `initialize()` no longer stays empty for the session.
+
+`EasyBannerAd` reaches the package through a static runtime that only exists
+once something first touches `EasyAds.instance`. A host app that defers
+`initialize()` — behind a premium check, a remote config fetch, or a delay so
+the UMP form does not land on a cold screen — mounts its banners before that.
+Those banners returned from `_load()` on the null runtime *before* subscribing
+to `requestGateOpened`, so the gate built to give an early banner its second
+chance never reached them; only a resize could revive them.
+
+Assigning the runtime now bumps `EasyBannerAd.runtimeAttached`, and a banner
+that finds no runtime subscribes to it before returning. The failure was
+invisible on emulators, where a slow first screen let initialization win the
+race, and showed up in production as a home screen with no banner.
+
 ## 0.2.3
 
 Subscribers are no longer shown the UMP consent form.

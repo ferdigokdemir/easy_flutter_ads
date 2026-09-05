@@ -82,7 +82,31 @@ class EasyBannerAd extends StatefulWidget {
   final void Function(AdSize size)? onLoaded;
 
   /// Injected by `EasyAds`; not part of the public API.
-  static AdRuntime? runtime;
+  ///
+  /// Null until something first touches `EasyAds.instance`, which is not
+  /// necessarily before a banner mounts: a host app that defers
+  /// `EasyAds.initialize()` (waiting on a premium check, a remote config
+  /// fetch, or a deliberate delay so the UMP form does not cover a cold
+  /// screen) leaves every banner built in that window with nothing to load
+  /// against. Those banners used to give up permanently — they returned
+  /// before subscribing to [AdRuntime.requestGateOpened], so the gate that
+  /// exists precisely to give them a second chance never reached them, and
+  /// only a resize could revive them. Assigning here bumps
+  /// [runtimeAttached] so they can start over.
+  static AdRuntime? get runtime => _runtime;
+
+  static set runtime(AdRuntime? value) {
+    if (identical(_runtime, value)) return;
+    _runtime = value;
+    if (value != null) runtimeAttached.value++;
+  }
+
+  static AdRuntime? _runtime;
+
+  /// Bumped when [runtime] is attached. Banners that mounted before the
+  /// package was configured listen here; a counter rather than a flag so a
+  /// second attachment (hot restart in development) is noticed too.
+  static final ValueNotifier<int> runtimeAttached = ValueNotifier(0);
 
   @override
   State<EasyBannerAd> createState() => _EasyBannerAdState();
@@ -93,6 +117,7 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
   AdSize? _size;
   bool _loading = false;
   bool _watchingGate = false;
+  bool _watchingRuntime = false;
   int _attempt = 0;
   int _requestedWidth = 0;
   Timer? _retryTimer;
@@ -104,6 +129,9 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
     _retryTimer?.cancel();
     if (_watchingGate) {
       _runtime?.requestGateOpened.removeListener(_onRequestGateOpened);
+    }
+    if (_watchingRuntime) {
+      EasyBannerAd.runtimeAttached.removeListener(_onRuntimeAttached);
     }
     _disposeAd();
     super.dispose();
@@ -119,9 +147,29 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
     unawaited(_load(_requestedWidth));
   }
 
+  /// The package got configured after this banner was built. Everything the
+  /// first attempt needed is in place now, so run it again from the top.
+  void _onRuntimeAttached() {
+    if (!mounted || _loading || _ad != null || _requestedWidth <= 0) return;
+    _retryTimer?.cancel();
+    _attempt = 0;
+    unawaited(_load(_requestedWidth));
+  }
+
   Future<void> _load(int width) async {
+    if (_loading) return;
+
     final runtime = _runtime;
-    if (runtime == null || _loading) return;
+    if (runtime == null) {
+      // Nothing to load against yet. Subscribing before returning is the whole
+      // point: `EasyAds.initialize()` may still be minutes away, and without
+      // this the banner would sit empty for the rest of the session.
+      if (!_watchingRuntime) {
+        _watchingRuntime = true;
+        EasyBannerAd.runtimeAttached.addListener(_onRuntimeAttached);
+      }
+      return;
+    }
     if (!runtime.config.enabled || !runtime.config.bannerEnabled) return;
 
     final unitId = widget.adUnitId ?? runtime.config.adUnitIds.banner;
