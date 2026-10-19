@@ -47,13 +47,12 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
   /// navigator.pushReplacementNamed(Routes.home);
   /// ```
   ///
-  /// The wait is capped by [EasyAdsConfig.appOpenColdStartMaxWait]; if the ad is
-  /// not ready by then the show is cancelled for good, so it can never surface
-  /// later on top of app content. The in-flight load keeps running and the ad
-  /// is kept for the next opportunity.
+  /// Only an ad cached by then is shown — call [preload] early in startup. With
+  /// nothing cached the launch continues without one, so the ad can never
+  /// surface later on top of app content.
   ///
   /// Returns true only if an ad was actually shown and dismissed.
-  Future<bool> showOnColdStart({Duration? maxWait}) async {
+  Future<bool> showOnColdStart() async {
     if (!runtime.config.appOpenColdStartEnabled) {
       _emitSkipped(EasyAdSkipReason.formatDisabled);
       return false;
@@ -66,9 +65,7 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
       return false;
     }
 
-    return show(
-      maxLoadWait: maxWait ?? runtime.config.appOpenColdStartMaxWait,
-    );
+    return show();
   }
 
   /// Starts showing the ad when the app returns from the background.
@@ -140,7 +137,7 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
       _emitSkipped(EasyAdSkipReason.formatDisabled);
       return;
     }
-    await show(loadIfMissing: false);
+    await show();
   }
 
   @override

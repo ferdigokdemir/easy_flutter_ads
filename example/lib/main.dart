@@ -63,7 +63,7 @@ class _SplashPageState extends State<SplashPage> {
     // Your own startup work (config fetch, auth, migrations) goes here.
     await Future<void>.delayed(const Duration(milliseconds: 400));
 
-    // Shows only if an ad is ready within appOpenColdStartMaxWait; otherwise the
+    // Shows only if preloadAll() has cached an ad by now; otherwise the
     // launch continues without one.
     await EasyAds.instance.appOpen.showOnColdStart();
 

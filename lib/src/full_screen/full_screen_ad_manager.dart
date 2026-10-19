@@ -16,14 +16,6 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
   /// Creates a manager bound to [runtime].
   FullScreenAdManager(this.runtime);
 
-  /// Default budget for [show] when the caller does not name one.
-  ///
-  /// Generous on purpose: the alternative to waiting is a cancelled show, which
-  /// costs an impression *and* — for rewarded — the reward the user was
-  /// promised. Call sites that cannot afford the wait pass their own budget, or
-  /// an explicit null for no budget at all.
-  static const Duration defaultMaxLoadWait = Duration(seconds: 15);
-
   /// Shared state and policy gates.
   @protected
   final AdRuntime runtime;
@@ -139,30 +131,15 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
     return completer.future;
   }
 
-  /// Shows the ad.
+  /// Shows the cached ad.
   ///
   /// Returns true only when the ad actually rendered and was dismissed.
   ///
-  /// With [loadIfMissing] false the call returns immediately when nothing is
-  /// cached — use it where a wait would be felt, and let the background
-  /// preloader catch up for next time.
-  ///
-  /// [maxLoadWait] is a *total* budget for getting an ad on screen: SDK
-  /// initialization, consent gathering and the load itself all draw from it.
-  /// A budget that only covered the load would be a false promise — on a first
-  /// run the consent form alone can outlast it.
-  ///
-  /// When the budget runs out the show is *cancelled*, not deferred: the ad
-  /// never appears late, on top of content the user is already using. The load
-  /// keeps running, so the ad lands in the cache for the next opportunity
-  /// instead of being wasted.
-  ///
-  /// Defaults to [defaultMaxLoadWait]. Pass an explicit null to wait as long as
-  /// the SDK takes.
-  Future<bool> show({
-    bool loadIfMissing = true,
-    Duration? maxLoadWait = defaultMaxLoadWait,
-  }) async {
+  /// Never waits for a load: when nothing is cached the call returns false at
+  /// once and the background preloader catches up for next time. An ad that
+  /// loads while the user waits lands on screen late — on top of a tap meant
+  /// for the app, which AdMob counts as an accidental click.
+  Future<bool> show() async {
     try {
       final skipReason = await runtime.evaluateGates(format);
       if (skipReason != null) {
@@ -170,46 +147,9 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
         return false;
       }
 
-      final deadline = maxLoadWait == null ? null : runtime.now.add(maxLoadWait);
-
-      final initializing = runtime.ensureInitialized();
-      final initBudget = _remaining(deadline);
-      final initialized = initBudget == null
-          ? await initializing
-          : await initializing.timeout(initBudget, onTimeout: () => false);
-      if (!initialized) {
-        _emitSkip(EasyAdSkipReason.notInitialized);
-        return false;
-      }
-
-      if (adUnitId.isEmpty) {
-        _emitSkip(EasyAdSkipReason.noAdUnitId);
-        return false;
-      }
-
-      if (!isReady) {
-        if (!loadIfMissing) {
-          unawaited(preload());
-          _emitSkip(EasyAdSkipReason.notReady);
-          return false;
-        }
-        final loadBudget = _remaining(deadline);
-        if (loadBudget != null && loadBudget <= Duration.zero) {
-          _emitSkip(EasyAdSkipReason.notReady);
-          return false;
-        }
-        final loading = load();
-        final loaded = loadBudget == null
-            ? await loading
-            : await loading.timeout(loadBudget, onTimeout: () => false);
-        if (!loaded) {
-          _emitSkip(EasyAdSkipReason.notReady);
-          return false;
-        }
-      }
-
       final ad = _ad;
-      if (ad == null) {
+      if (ad == null || !isReady) {
+        unawaited(preload());
         _emitSkip(EasyAdSkipReason.notReady);
         return false;
       }
@@ -399,11 +339,6 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
       ),
     );
   }
-
-  /// Time left in a show budget, or null when there is no deadline. Returns a
-  /// non-positive duration once the budget is spent.
-  Duration? _remaining(DateTime? deadline) =>
-      deadline?.difference(runtime.now);
 
   Duration _backoffDelay(int attempt) {
     final base = runtime.config.retryBaseDelay.inMilliseconds;

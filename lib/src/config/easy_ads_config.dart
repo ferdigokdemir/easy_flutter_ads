@@ -32,7 +32,6 @@ class EasyAdsConfig {
     this.interstitialCooldown = const Duration(seconds: 180),
     this.minGapAfterFullScreenAd = const Duration(seconds: 120),
     this.minGapAfterAppOpenAd = const Duration(seconds: 30),
-    this.appOpenColdStartMaxWait = const Duration(seconds: 5),
     this.appOpenMinSessions = 1,
     this.appOpenDailyCap = 3,
     this.appOpenWindowCap = 2,
@@ -186,13 +185,6 @@ class EasyAdsConfig {
   /// the back-to-back case while leaving the impression intact for a user who
   /// stayed a while — raise it if your entry flow finishes faster than that.
   final Duration minGapAfterAppOpenAd;
-
-  /// How long [AppOpenAdManager.showOnColdStart] may wait for its ad.
-  ///
-  /// The ad must fill time the user was already going to wait — your loading
-  /// screen — not create new waiting. If it is not ready in time the show is
-  /// cancelled outright; it must never appear once app content is visible.
-  final Duration appOpenColdStartMaxWait;
 
   /// Number of app sessions before the first App Open ad is allowed.
   ///
@@ -348,7 +340,6 @@ class EasyAdsConfig {
     Duration? interstitialCooldown,
     Duration? minGapAfterFullScreenAd,
     Duration? minGapAfterAppOpenAd,
-    Duration? appOpenColdStartMaxWait,
     int? appOpenMinSessions,
     int? appOpenDailyCap,
     bool clearAppOpenDailyCap = false,
@@ -396,8 +387,6 @@ class EasyAdsConfig {
       minGapAfterFullScreenAd:
           minGapAfterFullScreenAd ?? this.minGapAfterFullScreenAd,
       minGapAfterAppOpenAd: minGapAfterAppOpenAd ?? this.minGapAfterAppOpenAd,
-      appOpenColdStartMaxWait:
-          appOpenColdStartMaxWait ?? this.appOpenColdStartMaxWait,
       appOpenMinSessions: appOpenMinSessions ?? this.appOpenMinSessions,
       appOpenDailyCap: clearAppOpenDailyCap
           ? null

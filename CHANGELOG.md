@@ -1,3 +1,23 @@
+## 0.3.0
+
+`show()` no longer waits for a load — breaking.
+
+An ad loaded while the user waits reaches the screen late, on top of a tap
+meant for the app, and AdMob counts that as an accidental click. Every host
+app had already passed `loadIfMissing: false` to its interstitial and resume
+App Open calls; the waiting path only stayed alive for rewarded and the cold
+start, which now behave the same way.
+
+- `show()` shows the cached ad, or returns false at once and starts a
+  background load for next time.
+- Removed `loadIfMissing` and `maxLoadWait` from `show()` and
+  `showForReward()`, and `FullScreenAdManager.defaultMaxLoadWait`.
+- Removed `showOnColdStart(maxWait:)` and `EasyAdsConfig.appOpenColdStartMaxWait`.
+  Preload early in startup; with nothing cached the launch continues without
+  an ad.
+- A "watch an ad" button should check `isReady` — with no ad cached,
+  `showForReward()` returns null immediately.
+
 ## 0.2.4
 
 A banner built before `initialize()` no longer stays empty for the session.

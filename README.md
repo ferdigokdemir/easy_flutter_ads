@@ -53,12 +53,14 @@ await EasyAds.instance.appOpen.showOnColdStart();
 navigator.pushReplacementNamed(Routes.home);
 ```
 
-The wait is capped by `appOpenColdStartMaxWait` (5s default). If the ad is not ready in time the show is
-**cancelled**, not deferred — it can never appear later, on top of content the user is already using.
-The load keeps running in the background, so the ad is kept for the next opportunity.
+It shows only an ad that is already cached, so preload early in startup. With nothing cached the
+launch continues without one — the ad can never appear later, on top of content the user is already
+using.
 
-Note what this rules out: `Future.timeout()` around a plain `show()` does *not* work. Futures in Dart
-cannot be cancelled, so the ad still appears when it eventually loads — over your home screen.
+Every `show()` works this way, rewarded included: it never waits for a load. An ad that loads while
+the user waits lands on screen late, on top of a tap meant for the app — an accidental click. When
+nothing is cached the call returns at once and starts a background load for next time; check
+`isReady` first if a "watch an ad" button should say so.
 
 **2. No ad immediately before or after another ad.**
 

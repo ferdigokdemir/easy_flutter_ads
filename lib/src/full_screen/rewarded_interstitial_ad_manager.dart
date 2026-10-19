@@ -29,17 +29,11 @@ class RewardedInterstitialAdManager
 
   /// Shows the ad and returns the reward, or null when nothing was earned.
   ///
-  /// [maxLoadWait] defaults to [FullScreenAdManager.defaultMaxLoadWait]; pass
-  /// an explicit null to wait as long as the SDK takes.
-  Future<EasyAdReward?> showForReward({
-    bool loadIfMissing = true,
-    Duration? maxLoadWait = FullScreenAdManager.defaultMaxLoadWait,
-  }) async {
+  /// Like [show], never waits for a load: with no ad cached it returns null at
+  /// once — check [isReady] first if the button should say so.
+  Future<EasyAdReward?> showForReward() async {
     _reward = null;
-    final shown = await show(
-      loadIfMissing: loadIfMissing,
-      maxLoadWait: maxLoadWait,
-    );
+    final shown = await show();
     return shown ? _reward : null;
   }
 
