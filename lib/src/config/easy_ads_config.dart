@@ -21,7 +21,7 @@ class EasyAdsConfig {
     this.rewardedEnabled = true,
     this.rewardedInterstitialEnabled = true,
     this.bannerEnabled = true,
-    this.loadTimeout = const Duration(seconds: 15),
+    this.loadTimeout = const Duration(seconds: 30),
     this.sdkInitTimeout = const Duration(seconds: 5),
     this.fullScreenTtl = const Duration(minutes: 50),
     this.appOpenTtl = const Duration(hours: 3, minutes: 30),

@@ -1,3 +1,12 @@
+## 0.3.1
+
+`EasyAdsConfig.loadTimeout` now defaults to 30 seconds instead of 15.
+
+Since 0.3.0 nothing waits on a load: `show()` takes the cached ad or returns
+false, and loads run in the background. A short timeout no longer saves the
+user any waiting; it only abandons slow fills on weak networks that would
+have arrived, and burns a retry on them.
+
 ## 0.3.0
 
 `show()` no longer waits for a load — breaking.
