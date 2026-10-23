@@ -139,7 +139,18 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
   /// once and the background preloader catches up for next time. An ad that
   /// loads while the user waits lands on screen late — on top of a tap meant
   /// for the app, which AdMob counts as an accidental click.
-  Future<bool> show() async {
+  ///
+  /// [beforeShow] runs only once the gates have passed and an ad is cached —
+  /// the ad *will* be shown — and is awaited before it renders: put a "please
+  /// wait" screen up there, so the ad does not appear out of nowhere. Nothing
+  /// else can show over that screen in the meantime. [afterShow] runs whenever
+  /// [beforeShow] did, once the ad has closed or failed — take the screen down
+  /// there. A gated or empty call runs neither, so the screen never flashes up
+  /// for an ad that does not come.
+  Future<bool> show({
+    Future<void> Function()? beforeShow,
+    VoidCallback? afterShow,
+  }) async {
     try {
       final skipReason = await runtime.evaluateGates(format);
       if (skipReason != null) {
@@ -154,7 +165,14 @@ abstract class FullScreenAdManager<T extends AdWithoutView> {
         return false;
       }
 
-      return await _showLoadedAd(ad);
+      if (beforeShow == null) return await _showLoadedAd(ad);
+      try {
+        runtime.isShowingFullScreenAd = true;
+        await beforeShow();
+        return await _showLoadedAd(ad);
+      } finally {
+        afterShow?.call();
+      }
     } catch (error, stackTrace) {
       runtime.isShowingFullScreenAd = false;
       runtime.logError(error, stackTrace);

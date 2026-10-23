@@ -1,3 +1,14 @@
+## 0.3.3
+
+`show()` and `appOpen.startWatchingAppState()` take `beforeShow` and `afterShow`.
+
+`beforeShow` runs only when the ad will really be shown — every gate passed and
+an ad is cached — and is awaited before it renders; `afterShow` runs once it has
+closed or failed. Put a short "please wait" screen up in one and take it down in
+the other, so a resume App Open ad does not drop on the user the instant the app
+reappears. A gated or empty call runs neither, so the screen never flashes up for
+an ad that does not come. Nothing else can show over that screen meanwhile.
+
 ## 0.3.2
 
 An empty banner tries again when the app returns to the foreground.

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../core/app_state_watcher.dart';
@@ -81,11 +82,18 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
   /// Only a preloaded ad is shown. Loading on resume would put the ad on
   /// screen seconds after the user is already interacting with content — the
   /// placement AdMob prohibits.
-  void startWatchingAppState() {
+  ///
+  /// [beforeShow] and [afterShow] are passed to [show] on every return: a
+  /// short "please wait" screen in [beforeShow] tells the user an ad is coming
+  /// instead of dropping it on them the instant the app reappears.
+  void startWatchingAppState({
+    Future<void> Function()? beforeShow,
+    VoidCallback? afterShow,
+  }) {
     if (_appStateSubscription != null) return;
     _appStateSubscription = AppStateWatcher.instance.stream.listen((state) {
       if (state != AppState.foreground) return;
-      unawaited(_onForeground());
+      unawaited(_onForeground(beforeShow, afterShow));
     });
   }
 
@@ -128,7 +136,10 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
     runtime.appOpenSuppressedUntil = runtime.now.add(window);
   }
 
-  Future<void> _onForeground() async {
+  Future<void> _onForeground(
+    Future<void> Function()? beforeShow,
+    VoidCallback? afterShow,
+  ) async {
     // Refresh the cache first: after a long background stint the ad is likely
     // past its TTL, and preload() is cheap when it is not.
     unawaited(preload());
@@ -137,7 +148,7 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
       _emitSkipped(EasyAdSkipReason.formatDisabled);
       return;
     }
-    await show();
+    await show(beforeShow: beforeShow, afterShow: afterShow);
   }
 
   @override
