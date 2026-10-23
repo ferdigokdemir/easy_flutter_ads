@@ -1,3 +1,13 @@
+## 0.3.2
+
+An empty banner tries again when the app returns to the foreground.
+
+Once its retries ran out, a banner stayed empty for the rest of the session;
+only a width change started it again. Coming back to the foreground now does.
+A banner already showing an ad, or still loading one, is left alone.
+
+Requires Flutter 3.13 (`AppLifecycleListener`).
+
 ## 0.3.1
 
 `EasyAdsConfig.loadTimeout` now defaults to 30 seconds instead of 15.

@@ -124,8 +124,22 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
 
   AdRuntime? get _runtime => EasyBannerAd.runtime;
 
+  /// A banner whose retries ran out stays empty for the rest of the session —
+  /// nothing else asks it to try again unless the width changes. Coming back
+  /// to the foreground is a fresh chance: the network may be back, and the
+  /// user is looking at the screen again. A banner already on screen or still
+  /// loading is left alone; cutting a load short would throw away its fill.
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _onRequestGateOpened);
+  }
+
   @override
   void dispose() {
+    _lifecycle.dispose();
     _retryTimer?.cancel();
     if (_watchingGate) {
       _runtime?.requestGateOpened.removeListener(_onRequestGateOpened);
