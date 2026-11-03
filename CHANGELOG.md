@@ -1,3 +1,13 @@
+## 0.4.0
+
+`EasyAdsConfig.maxAdContentRating` now defaults to `T` instead of no limit.
+
+With no limit set in the app, the AdMob console's blocking controls decide, and
+an account that never set one there serves ads up to `MA`, gambling-style ones
+included. `T` keeps those out and leaves most of the demand. A family app
+should pass `MaxAdContentRating.g` or `.pg`; pass `.ma` for the widest pool, or
+an empty string to keep the old behaviour and leave the limit to the console.
+
 ## 0.3.3
 
 `show()` and `appOpen.startWatchingAppState()` take `beforeShow` and `afterShow`.
