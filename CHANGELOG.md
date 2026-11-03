@@ -1,3 +1,9 @@
+## 0.4.1
+
+`EasyAdsConfig.maxAdContentRating` has no default again; the AdMob console's
+blocking controls decide, as before 0.4.0. Pass a `MaxAdContentRating`
+constant to set a limit in the app.
+
 ## 0.4.0
 
 `EasyAdsConfig.maxAdContentRating` now defaults to `T` instead of no limit.

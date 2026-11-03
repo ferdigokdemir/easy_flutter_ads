@@ -43,7 +43,7 @@ class EasyAdsConfig {
     this.testDeviceIds = const [],
     this.allowTestDevicesInRelease = false,
     this.forceConsentDebugGeographyEea = false,
-    this.maxAdContentRating = 'T', // MaxAdContentRating.t, which is not const
+    this.maxAdContentRating,
     this.tagForChildDirectedTreatment,
     this.tagForUnderAgeOfConsent,
     this.requestKeywords,
@@ -291,11 +291,8 @@ class EasyAdsConfig {
   /// Maximum content rating for served ads. Use the [MaxAdContentRating]
   /// constants (`MaxAdContentRating.g`, `.pg`, `.t`, `.ma`).
   ///
-  /// Defaults to `T` (teen and up), which keeps mature and gambling-style ads
-  /// out while leaving most of the demand. Pass `MaxAdContentRating.g` or
-  /// `.pg` for a family app, `.ma` for the widest pool, or an empty string to
-  /// set no limit in the app and leave it to the AdMob console's blocking
-  /// controls.
+  /// Unset by default: the app sets no limit and the AdMob console's blocking
+  /// controls decide.
   final String? maxAdContentRating;
 
   /// COPPA tag — set it if your app is child-directed. Use the
