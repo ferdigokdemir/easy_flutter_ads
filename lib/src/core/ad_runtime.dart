@@ -204,7 +204,6 @@ class AdRuntime {
       await MobileAds.instance.updateRequestConfiguration(
         RequestConfiguration(
           testDeviceIds: testDeviceIds,
-          maxAdContentRating: config.maxAdContentRating,
           tagForChildDirectedTreatment: config.tagForChildDirectedTreatment,
           tagForUnderAgeOfConsent: config.tagForUnderAgeOfConsent,
         ),

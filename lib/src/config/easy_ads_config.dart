@@ -43,7 +43,6 @@ class EasyAdsConfig {
     this.testDeviceIds = const [],
     this.allowTestDevicesInRelease = false,
     this.forceConsentDebugGeographyEea = false,
-    this.maxAdContentRating,
     this.tagForChildDirectedTreatment,
     this.tagForUnderAgeOfConsent,
     this.requestKeywords,
@@ -288,13 +287,6 @@ class EasyAdsConfig {
   /// listed in [testDeviceIds].
   final bool forceConsentDebugGeographyEea;
 
-  /// Maximum content rating for served ads. Use the [MaxAdContentRating]
-  /// constants (`MaxAdContentRating.g`, `.pg`, `.t`, `.ma`).
-  ///
-  /// Unset by default: the app sets no limit and the AdMob console's blocking
-  /// controls decide.
-  final String? maxAdContentRating;
-
   /// COPPA tag — set it if your app is child-directed. Use the
   /// [TagForChildDirectedTreatment] constants.
   final int? tagForChildDirectedTreatment;
@@ -358,7 +350,6 @@ class EasyAdsConfig {
     List<String>? testDeviceIds,
     bool? allowTestDevicesInRelease,
     bool? forceConsentDebugGeographyEea,
-    String? maxAdContentRating,
     int? tagForChildDirectedTreatment,
     int? tagForUnderAgeOfConsent,
     List<String>? requestKeywords,
@@ -413,7 +404,6 @@ class EasyAdsConfig {
           allowTestDevicesInRelease ?? this.allowTestDevicesInRelease,
       forceConsentDebugGeographyEea:
           forceConsentDebugGeographyEea ?? this.forceConsentDebugGeographyEea,
-      maxAdContentRating: maxAdContentRating ?? this.maxAdContentRating,
       tagForChildDirectedTreatment:
           tagForChildDirectedTreatment ?? this.tagForChildDirectedTreatment,
       tagForUnderAgeOfConsent:

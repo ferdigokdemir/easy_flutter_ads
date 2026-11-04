@@ -1,3 +1,9 @@
+## 0.5.0
+
+**Breaking:** `EasyAdsConfig.maxAdContentRating` and the `MaxAdContentRating`
+export are gone. The package no longer sets a content rating; the AdMob
+console's blocking controls decide. Remove the argument from your config.
+
 ## 0.4.1
 
 `EasyAdsConfig.maxAdContentRating` has no default again; the AdMob console's
