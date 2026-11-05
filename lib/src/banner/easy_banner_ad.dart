@@ -342,10 +342,7 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
       if (runtime.collapsibleConsumed) return runtime.buildRequest();
       runtime.collapsibleConsumed = true;
     }
-    return AdRequest(
-      keywords: runtime.config.requestKeywords,
-      extras: {'collapsible': widget.collapse.name},
-    );
+    return AdRequest(extras: {'collapsible': widget.collapse.name});
   }
 
   Future<AdSize?> _resolveSize(int width) async {

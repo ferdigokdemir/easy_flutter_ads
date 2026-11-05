@@ -1,3 +1,11 @@
+## 0.6.0
+
+**Breaking:** `EasyAdsConfig.tagForChildDirectedTreatment`,
+`EasyAdsConfig.tagForUnderAgeOfConsent`, `EasyAdsConfig.requestKeywords` and the
+`TagForChildDirectedTreatment` / `TagForUnderAgeOfConsent` exports are gone. The
+package no longer sets these on ad requests. Remove the arguments from your
+config.
+
 ## 0.5.0
 
 **Breaking:** `EasyAdsConfig.maxAdContentRating` and the `MaxAdContentRating`

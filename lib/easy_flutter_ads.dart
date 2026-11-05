@@ -6,11 +6,7 @@
 library;
 
 export 'package:google_mobile_ads/google_mobile_ads.dart'
-    show
-        AdSize,
-        AppState,
-        TagForChildDirectedTreatment,
-        TagForUnderAgeOfConsent;
+    show AdSize, AppState;
 
 export 'src/app_open/app_open_ad_manager.dart';
 export 'src/banner/easy_banner_ad.dart';

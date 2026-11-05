@@ -1,5 +1,3 @@
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-
 import '../core/easy_ad_event.dart';
 import 'easy_ad_unit_ids.dart';
 
@@ -43,9 +41,6 @@ class EasyAdsConfig {
     this.testDeviceIds = const [],
     this.allowTestDevicesInRelease = false,
     this.forceConsentDebugGeographyEea = false,
-    this.tagForChildDirectedTreatment,
-    this.tagForUnderAgeOfConsent,
-    this.requestKeywords,
     this.verboseLogging = false,
     this.onEvent,
     this.onPaidEvent,
@@ -287,17 +282,6 @@ class EasyAdsConfig {
   /// listed in [testDeviceIds].
   final bool forceConsentDebugGeographyEea;
 
-  /// COPPA tag — set it if your app is child-directed. Use the
-  /// [TagForChildDirectedTreatment] constants.
-  final int? tagForChildDirectedTreatment;
-
-  /// GDPR under-age-of-consent tag. Use the [TagForUnderAgeOfConsent]
-  /// constants.
-  final int? tagForUnderAgeOfConsent;
-
-  /// Keywords attached to every ad request, for contextual targeting.
-  final List<String>? requestKeywords;
-
   /// Prints every lifecycle event with `debugPrint`. Debug builds only.
   final bool verboseLogging;
 
@@ -350,9 +334,6 @@ class EasyAdsConfig {
     List<String>? testDeviceIds,
     bool? allowTestDevicesInRelease,
     bool? forceConsentDebugGeographyEea,
-    int? tagForChildDirectedTreatment,
-    int? tagForUnderAgeOfConsent,
-    List<String>? requestKeywords,
     bool? verboseLogging,
     void Function(EasyAdEvent event)? onEvent,
     void Function(EasyAdRevenue revenue)? onPaidEvent,
@@ -404,11 +385,6 @@ class EasyAdsConfig {
           allowTestDevicesInRelease ?? this.allowTestDevicesInRelease,
       forceConsentDebugGeographyEea:
           forceConsentDebugGeographyEea ?? this.forceConsentDebugGeographyEea,
-      tagForChildDirectedTreatment:
-          tagForChildDirectedTreatment ?? this.tagForChildDirectedTreatment,
-      tagForUnderAgeOfConsent:
-          tagForUnderAgeOfConsent ?? this.tagForUnderAgeOfConsent,
-      requestKeywords: requestKeywords ?? this.requestKeywords,
       verboseLogging: verboseLogging ?? this.verboseLogging,
       onEvent: onEvent ?? this.onEvent,
       onPaidEvent: onPaidEvent ?? this.onPaidEvent,

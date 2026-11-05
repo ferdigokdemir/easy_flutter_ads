@@ -192,21 +192,16 @@ class AdRuntime {
   }
 
   /// The ad request used for every load.
-  AdRequest buildRequest() => AdRequest(keywords: config.requestKeywords);
+  AdRequest buildRequest() => const AdRequest();
 
-  /// Applies targeting/test-device settings. These are global SDK settings, so
-  /// they are applied before the first request and again on every
-  /// `updateConfig`.
+  /// Applies test-device settings. These are global SDK settings, so they are
+  /// applied before the first request and again on every `updateConfig`.
   Future<void> applyRequestConfiguration({
     required List<String> testDeviceIds,
   }) async {
     try {
       await MobileAds.instance.updateRequestConfiguration(
-        RequestConfiguration(
-          testDeviceIds: testDeviceIds,
-          tagForChildDirectedTreatment: config.tagForChildDirectedTreatment,
-          tagForUnderAgeOfConsent: config.tagForUnderAgeOfConsent,
-        ),
+        RequestConfiguration(testDeviceIds: testDeviceIds),
       );
     } catch (error, stackTrace) {
       logError(error, stackTrace);
