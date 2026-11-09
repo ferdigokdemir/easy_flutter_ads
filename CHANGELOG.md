@@ -1,3 +1,18 @@
+## 0.6.1
+
+`showOnColdStart(maxWait:)`: the cold start ad can load while the splash is up.
+
+A fresh process rarely has an App Open ad cached, so `showOnColdStart()` mostly
+returned without one. With `maxWait`, a missing ad is loaded for at most that
+long and then shown; one that comes in later is not shown and stays cached for a
+later return. The gates (caps, cooldown, the gap after another ad) are checked
+before the load: a launch past its daily or hourly cap returns at once instead
+of waiting on the splash for an ad `show()` would refuse.
+
+Pass it only when the splash covers the app, so the late ad cannot land on a
+tap meant for it — the reason waiting was taken out of `show()` in 0.3.0.
+Without `maxWait` nothing changes.
+
 ## 0.6.0
 
 **Breaking:** `EasyAdsConfig.tagForChildDirectedTreatment`,

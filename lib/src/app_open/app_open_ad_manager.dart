@@ -48,12 +48,23 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
   /// navigator.pushReplacementNamed(Routes.home);
   /// ```
   ///
-  /// Only an ad cached by then is shown — call [preload] early in startup. With
-  /// nothing cached the launch continues without one, so the ad can never
-  /// surface later on top of app content.
+  /// Without [maxWait], only an ad cached by then is shown — call [preload]
+  /// early in startup. With nothing cached the launch continues without one,
+  /// so the ad can never surface later on top of app content.
+  ///
+  /// With [maxWait], a missing ad is loaded here, for at most that long, while
+  /// the splash stays up — AdMob's recommended cold start pattern. Pass it only
+  /// when nothing behind the splash can be tapped. The gates (caps, cooldown,
+  /// the gap after another ad) are checked **before** loading, so a launch that
+  /// could not show an ad anyway does not wait on the splash. An ad that comes
+  /// in after [maxWait] is not shown; it stays cached for a later return.
+  ///
+  /// ```dart
+  /// await EasyAds.instance.appOpen.showOnColdStart(maxWait: const Duration(seconds: 4));
+  /// ```
   ///
   /// Returns true only if an ad was actually shown and dismissed.
-  Future<bool> showOnColdStart() async {
+  Future<bool> showOnColdStart({Duration? maxWait}) async {
     if (!runtime.config.appOpenColdStartEnabled) {
       _emitSkipped(EasyAdSkipReason.formatDisabled);
       return false;
@@ -64,6 +75,21 @@ class AppOpenAdManager extends FullScreenAdManager<AppOpenAd> {
     if (runtime.sessionCount <= runtime.config.appOpenMinSessions) {
       _emitSkipped(EasyAdSkipReason.sessionThreshold);
       return false;
+    }
+
+    if (maxWait != null && !isReady) {
+      // Loading ignores the gates; only show() applies them. Ask first, or a
+      // launch past its cap would sit on the splash for an ad never shown.
+      final skipReason = await runtime.evaluateGates(format);
+      if (skipReason != null) {
+        _emitSkipped(skipReason);
+        return false;
+      }
+      final loaded = await load().timeout(maxWait, onTimeout: () => false);
+      if (!loaded) {
+        _emitSkipped(EasyAdSkipReason.notReady);
+        return false;
+      }
     }
 
     return show();

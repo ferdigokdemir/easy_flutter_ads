@@ -57,6 +57,17 @@ It shows only an ad that is already cached, so preload early in startup. With no
 launch continues without one — the ad can never appear later, on top of content the user is already
 using.
 
+A fresh process rarely has one cached yet. If your splash covers the app so nothing can be tapped
+behind it, let the call load one, for a bounded time:
+
+```dart
+await EasyAds.instance.appOpen.showOnColdStart(maxWait: const Duration(seconds: 4));
+```
+
+The caps, cooldown and gap after another ad are checked first: a launch that could not show an ad
+returns at once instead of waiting on the splash. An ad that arrives after `maxWait` is not shown; it
+stays cached for the next return to the app.
+
 Every `show()` works this way, rewarded included: it never waits for a load. An ad that loads while
 the user waits lands on screen late, on top of a tap meant for the app — an accidental click. When
 nothing is cached the call returns at once and starts a background load for next time; check
