@@ -184,9 +184,11 @@ const EasyBannerAd(type: EasyBannerType.fixed,
 const EasyBannerAd(collapse: EasyBannerCollapse.bottom)     // collapsible
 ```
 
-`EasyBannerAd` loads on mount, re-requests when the available width changes (rotation, split screen),
-retries failures with backoff, disposes itself, and renders nothing until an ad is actually on
-screen — so no empty box is reserved for a banner that may never fill.
+`EasyBannerAd` loads once it is on screen — inside a scrollable, when its slot scrolls into the
+viewport — re-requests when the available width changes (rotation, split screen), retries failures
+with backoff, disposes itself, and renders nothing until an ad is actually on screen — so no empty
+box is reserved for a banner that may never fill, and no request is spent on a banner the user
+never scrolls to.
 
 It has **no refresh timer** on purpose. Refresh rate belongs on the ad unit in the AdMob dashboard;
 refreshing from client code double-counts requests and can breach the 60-second minimum.

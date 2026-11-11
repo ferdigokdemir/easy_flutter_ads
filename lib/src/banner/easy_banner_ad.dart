@@ -35,9 +35,15 @@ enum EasyBannerCollapse {
   bottom,
 }
 
-/// A self-managing banner: it loads on mount, reloads when the available width
-/// changes (rotation, split screen), disposes itself, and renders nothing at
-/// all until an ad is actually on screen.
+/// A self-managing banner: it loads once it is on screen, reloads when the
+/// available width changes (rotation, split screen), disposes itself, and
+/// renders nothing at all until an ad is actually on screen.
+///
+/// Inside a scrollable the request waits until the slot scrolls into the
+/// viewport. Loading on mount filled every banner of a long page at once, and
+/// the ones the user never scrolled to counted as matched-but-unshown: AdMob's
+/// show rate for in-content units sat near 50%. A banner outside any
+/// scrollable is on screen as soon as it is laid out, so nothing changes there.
 ///
 /// It deliberately has no refresh timer. Banner refresh is configured on the ad
 /// unit in the AdMob dashboard and handled by the SDK while the banner is
@@ -122,6 +128,12 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
   int _requestedWidth = 0;
   Timer? _retryTimer;
 
+  /// The nearest scrollable, whose position is watched until the slot comes on
+  /// screen. Null when the banner is not inside one.
+  ScrollableState? _scrollable;
+  ScrollPosition? _position;
+  bool _onScreen = false;
+
   AdRuntime? get _runtime => EasyBannerAd.runtime;
 
   /// A banner whose retries ran out stays empty for the rest of the session —
@@ -138,9 +150,27 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scrollable = Scrollable.maybeOf(context);
+    final position = _scrollable?.position;
+    if (position == null) {
+      _position?.removeListener(_checkOnScreen);
+      _position = null;
+      _onScreen = true;
+      return;
+    }
+    if (identical(position, _position)) return;
+    _position?.removeListener(_checkOnScreen);
+    _position = position;
+    if (!_onScreen) position.addListener(_checkOnScreen);
+  }
+
+  @override
   void dispose() {
     _lifecycle.dispose();
     _retryTimer?.cancel();
+    _position?.removeListener(_checkOnScreen);
     if (_watchingGate) {
       _runtime?.requestGateOpened.removeListener(_onRequestGateOpened);
     }
@@ -170,8 +200,33 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
     unawaited(_load(_requestedWidth));
   }
 
+  /// Runs on every scroll and after the first layout. Once the slot (still
+  /// zero-sized at this point, so only its offset matters) lies within the
+  /// scrollable's viewport along the scroll axis, the request goes out and the
+  /// position is no longer watched.
+  void _checkOnScreen() {
+    if (_onScreen || !mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    final viewport = _scrollable?.context.findRenderObject() as RenderBox?;
+    if (box == null || viewport == null || !box.hasSize || !viewport.hasSize) {
+      return;
+    }
+    final offset = box.localToGlobal(Offset.zero, ancestor: viewport);
+    final vertical = _scrollable!.axisDirection == AxisDirection.down ||
+        _scrollable!.axisDirection == AxisDirection.up;
+    final start = vertical ? offset.dy : offset.dx;
+    final end = start + (vertical ? box.size.height : box.size.width);
+    final extent = vertical ? viewport.size.height : viewport.size.width;
+    if (end < 0 || start > extent) return;
+    _onScreen = true;
+    _position?.removeListener(_checkOnScreen);
+    if (!_loading && _ad == null && _requestedWidth > 0) {
+      unawaited(_load(_requestedWidth));
+    }
+  }
+
   Future<void> _load(int width) async {
-    if (_loading) return;
+    if (_loading || !_onScreen) return;
 
     final runtime = _runtime;
     if (runtime == null) {
@@ -412,7 +467,10 @@ class _EasyBannerAdState extends State<EasyBannerAd> {
           _attempt = 0;
           // Loading touches state, which a build must never do synchronously.
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _requestedWidth == width) unawaited(_load(width));
+            if (!mounted || _requestedWidth != width) return;
+            // The slot has a position now; it may already be on screen.
+            _checkOnScreen();
+            unawaited(_load(width));
           });
         }
 

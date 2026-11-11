@@ -1,3 +1,15 @@
+## 0.6.2
+
+`EasyBannerAd` inside a scrollable now requests its ad when the slot scrolls into
+the viewport, not on mount.
+
+A page with several in-content banners used to fill all of them the moment it
+opened; the ones the user never scrolled to were matched requests without an
+impression, and AdMob's show rate for such units sat near 50%. The banner now
+watches the nearest `Scrollable`'s position until its slot is within the
+viewport along the scroll axis, then loads once and stops watching. A banner
+outside any scrollable loads after its first layout, as before.
+
 ## 0.6.1
 
 `showOnColdStart(maxWait:)`: the cold start ad can load while the splash is up.
