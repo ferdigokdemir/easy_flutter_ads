@@ -68,6 +68,19 @@ The caps, cooldown and gap after another ad are checked first: a launch that cou
 returns at once instead of waiting on the splash. An ad that arrives after `maxWait` is not shown; it
 stays cached for the next return to the app.
 
+The consent form must not open on the splash either: it would sit behind the ad, and the splash
+would wait for an answer. Start the SDK for the cold start with `gatherConsent: false` — it starts
+only if consent was completed in an earlier session, and leaves the UMP refresh to your regular
+`initialize()` call on the first real screen:
+
+```dart
+if (await EasyAds.instance.initialize(config: config, gatherConsent: false)) {
+  await EasyAds.instance.appOpen.showOnColdStart(maxWait: const Duration(seconds: 4));
+}
+// ...first screen is up:
+await EasyAds.instance.initialize(config: config); // asks for consent if needed
+```
+
 Every `show()` works this way, rewarded included: it never waits for a load. An ad that loads while
 the user waits lands on screen late, on top of a tap meant for the app — an accidental click. When
 nothing is cached the call returns at once and starts a background load for next time; check

@@ -56,6 +56,7 @@ class EasyAds {
   bool _configured = false;
   bool _sessionCounted = false;
   bool _storeInstalled = false;
+  bool _consentPending = false;
 
   /// Managers exist from the first access, even before [initialize].
   ///
@@ -133,11 +134,20 @@ class EasyAds {
   /// somewhere else — or [MemoryEasyAdsStore] to deliberately forget them on
   /// every launch.
   ///
+  /// With [gatherConsent] false — the cold start path, under a splash —
+  /// the consent form is never shown: if consent was never completed on this
+  /// device, nothing starts and false is returned at once; otherwise the SDK
+  /// starts on the stored decision and the UMP refresh is left to the next
+  /// [initialize] call without it, which the app makes once its first screen
+  /// is up. A form opened on the splash would sit under (or over) the App Open
+  /// ad, and the splash would wait for the user to answer it.
+  ///
   /// [clock] exists for tests.
   Future<bool> initialize({
     required EasyAdsConfig config,
     EasyAdsStore? store,
     DateTime Function()? clock,
+    bool gatherConsent = true,
   }) async {
     final runtime = _runtime;
     runtime.config = config;
@@ -155,6 +165,11 @@ class EasyAds {
       _storeInstalled = true;
     }
     if (clock != null) runtime.clock = clock;
+    if (!gatherConsent &&
+        !runtime.isInitialized &&
+        await runtime.store.readInt(ConsentManager.gatheredKey) == 0) {
+      return false;
+    }
     _configured = true;
 
     // Once per process, however many times initialize() is called. Calling it
@@ -165,7 +180,13 @@ class EasyAds {
       _sessionCounted = true;
       await runtime.startSession();
     }
-    return _ensureInitialized();
+    final started = await _ensureInitialized(gatherConsent: gatherConsent);
+    if (gatherConsent && _consentPending) {
+      _consentPending = false;
+      await consent.gather();
+      runtime.canRequestAds = await consent.canRequestAds();
+    }
+    return started;
   }
 
   /// Replaces the configuration at runtime — the hook for Firebase Remote
@@ -276,7 +297,7 @@ class EasyAds {
     _rewardedInterstitial?.dispose();
   }
 
-  Future<bool> _ensureInitialized() {
+  Future<bool> _ensureInitialized({bool gatherConsent = true}) {
     // Nothing to start until the host app has supplied ad units and callbacks.
     if (!_configured) return Future.value(false);
     // Ads are off for this user — a subscriber, or a kill switch. Starting the
@@ -286,10 +307,13 @@ class EasyAds {
     if (!_runtime.config.enabled) return Future.value(false);
     final runtime = _runtime;
     if (runtime.isInitialized) return Future.value(true);
-    return _initFuture ??= _startSdk(runtime);
+    return _initFuture ??= _startSdk(runtime, gatherConsent: gatherConsent);
   }
 
-  Future<bool> _startSdk(AdRuntime runtime) async {
+  Future<bool> _startSdk(
+    AdRuntime runtime, {
+    required bool gatherConsent,
+  }) async {
     try {
       // 1. Targeting/test-device settings are global and must be in place
       // before the first request.
@@ -304,15 +328,24 @@ class EasyAds {
       // the refresh runs alongside SDK startup instead of delaying it. This is
       // what Google's samples do when they call initializeMobileAdsSdk()
       // outside the gatherConsent callback.
-      final consentOnFile = await consent.canRequestAds();
-      final gathering = consent.gather().then(
-        (_) async => runtime.canRequestAds = await consent.canRequestAds(),
-      );
-      if (consentOnFile) {
+      //
+      // Without [gatherConsent] (cold start, see [initialize]) consent was
+      // completed in an earlier session: ads go out on that decision, and the
+      // refresh — which may show a form — waits for the next initialize().
+      if (!gatherConsent) {
+        _consentPending = true;
         runtime.canRequestAds = true;
-        unawaited(gathering);
       } else {
-        await gathering;
+        final consentOnFile = await consent.canRequestAds();
+        final gathering = consent.gather().then(
+          (_) async => runtime.canRequestAds = await consent.canRequestAds(),
+        );
+        if (consentOnFile) {
+          runtime.canRequestAds = true;
+          unawaited(gathering);
+        } else {
+          await gathering;
+        }
       }
 
       // 3. Start the SDK. Mediation adapters only join requests made after

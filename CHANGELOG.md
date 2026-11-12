@@ -1,3 +1,18 @@
+## 0.6.3
+
+`initialize(gatherConsent: false)`: start the SDK for the cold start ad without
+the consent form.
+
+`initialize()` gathers UMP consent before the SDK starts, and on a launch with no
+decision on file it waits for the form. Called on the splash for the cold start
+ad, that put the form on the splash and kept the splash up until the user
+answered. With `gatherConsent: false` the form is never shown: when consent was
+never completed on the device, nothing starts and the call returns false at
+once; otherwise the SDK starts on the stored decision and the UMP refresh runs on
+the next `initialize()` without the flag — the one the app makes on its first
+screen. Completed consent is remembered in the store under
+`easy_ads.consent_gathered`.
+
 ## 0.6.2
 
 `EasyBannerAd` inside a scrollable now requests its ad when the slot scrolls into

@@ -22,6 +22,10 @@ class ConsentManager {
 
   final AdRuntime _runtime;
 
+  /// Store key set once [gather] has ended with consent on file — read by
+  /// `EasyAds.initialize(gatherConsent: false)`.
+  static const gatheredKey = 'easy_ads.consent_gathered';
+
   /// True when consent has been gathered (or was not required).
   bool get canRequestAdsCached => _canRequestAds;
   bool _canRequestAds = false;
@@ -92,6 +96,7 @@ class ConsentManager {
     }
 
     _canRequestAds = await _safeCanRequestAds();
+    if (_canRequestAds) await _runtime.store.writeInt(gatheredKey, 1);
   }
 
   /// Whether the app may request ads according to UMP.
