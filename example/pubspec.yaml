@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
   easy_flutter_ads:
     path: ../
-  material_ui: ^1.11.0
+  material_ui: ^1.11.1
 
 dev_dependencies:
   flutter_test:

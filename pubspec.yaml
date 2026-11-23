@@ -20,8 +20,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  google_mobile_ads: ^9.1.0
-  shared_preferences: ^2.5.5
+  google_mobile_ads: ^9.2.0
+  shared_preferences: ^2.5.6
 
 dev_dependencies:
   flutter_test:
